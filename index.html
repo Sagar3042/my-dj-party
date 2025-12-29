@@ -3,39 +3,33 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Pro Precision Sync</title>
-    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&display=swap" rel="stylesheet">
+    <title>0.0000 Latency Sync</title>
+    <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
     <style>
-        :root { --accent: #00ff41; --bg: #0d0d0d; --panel: #1a1a1a; --err: #ff0055; }
-        body { background: var(--bg); color: white; font-family: 'Orbitron', sans-serif; margin: 0; overflow: hidden; }
+        :root { --neon: #00ffcc; --bg: #000000; --panel: #111; --red: #ff3333; }
+        body { background: var(--bg); color: var(--neon); font-family: 'Share Tech Mono', monospace; margin: 0; overflow: hidden; }
         
         .hidden { display: none !important; }
         .flex-c { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; }
-
+        
         /* LOGIN */
-        #login { position: fixed; z-index: 100; background: #000; width: 100%; height: 100%; top:0; left:0; }
-        input { background: #111; border: 1px solid #333; color: var(--accent); padding: 15px; font-size: 1.2rem; text-align: center; margin: 10px; width: 70%; border-radius: 5px; outline: none; }
-        button { background: var(--accent); color: black; border: none; padding: 15px 30px; font-size: 1.2rem; font-weight: bold; cursor: pointer; margin: 10px; border-radius: 5px; box-shadow: 0 0 10px var(--accent); }
+        #login { position: fixed; width: 100%; height: 100%; background: #000; z-index: 100; }
+        input { background: #111; border: 1px solid var(--neon); color: white; padding: 15px; font-family: inherit; font-size: 1.2rem; text-align: center; width: 70%; margin-bottom: 20px; }
+        button { background: var(--neon); color: black; border: none; padding: 15px 30px; font-size: 1.5rem; font-weight: bold; cursor: pointer; margin: 10px; font-family: inherit; text-transform: uppercase; }
         
         /* ADMIN UI */
-        #admin-view { padding: 10px; display: grid; grid-template-rows: auto 1fr auto; height: 100vh; }
-        .deck { background: var(--panel); padding: 15px; border: 1px solid #333; margin-bottom: 10px; border-radius: 5px; }
+        #admin-view { padding: 10px; height: 100vh; display: flex; flex-direction: column; }
+        .deck { border: 1px solid #333; padding: 15px; margin-bottom: 10px; background: #050505; }
+        .play-btn { width: 100%; height: 80px; font-size: 2rem; background: #004433; color: var(--neon); border: 1px solid var(--neon); margin-top:10px; }
         
         /* USER UI */
-        #user-view { text-align: center; background: radial-gradient(circle, #111 0%, #000 100%); }
-        .status-big { font-size: 3rem; margin: 0; color: var(--accent); text-shadow: 0 0 15px var(--accent); }
-        .sub-status { font-size: 1rem; color: #777; margin-top: 10px; font-family: sans-serif; }
-        
-        /* VISUALIZER */
-        .ping-display { position: absolute; top: 10px; right: 10px; color: #555; font-size: 0.8rem; font-family: monospace; }
+        #user-view { text-align: center; }
+        .status-text { font-size: 4rem; margin: 0; text-shadow: 0 0 20px var(--neon); }
+        .drift-info { color: #555; font-size: 0.8rem; margin-top: 10px; }
         
         /* JOYSTICK */
-        .joy-area { width: 150px; height: 150px; border: 2px solid #333; border-radius: 50%; margin: 10px auto; position: relative; background: #000; }
-        .knob { width: 40px; height: 40px; background: var(--accent); border-radius: 50%; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); }
-
-        /* LIST */
-        .user-list { max-height: 150px; overflow-y: auto; text-align: left; font-family: sans-serif; font-size: 0.9rem; }
-        .user-item { padding: 8px; border-bottom: 1px solid #222; display: flex; justify-content: space-between; }
+        .joy-pad { width: 180px; height: 180px; border: 2px solid #333; border-radius: 50%; margin: 20px auto; position: relative; background: #000; }
+        .knob { width: 50px; height: 50px; background: var(--neon); border-radius: 50%; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); box-shadow: 0 0 15px var(--neon); }
 
         #player-wrapper { position: absolute; top: -5000px; opacity: 0; }
     </style>
@@ -43,42 +37,34 @@
 <body>
 
     <div id="login" class="flex-c">
-        <h1 style="font-size:3rem; margin:0;">SYNC <span style="color:var(--accent)">PRO</span></h1>
-        <p style="color:#555; font-size:0.8rem;">Ultra-Low Latency Engine</p>
-        <input id="uName" placeholder="Device Name">
-        <button onclick="start('admin')">DJ ADMIN</button>
-        <button onclick="start('user')" style="background:#00aaff; box-shadow:0 0 10px #00aaff;">SPEAKER</button>
+        <h1>SYSTEM <span style="color:white">ZERO</span></h1>
+        <input id="uName" placeholder="ENTER CODENAME">
+        <button onclick="start('admin')">ADMIN TERMINAL</button>
+        <button onclick="start('user')" style="background:#333; color:white; border:1px solid white;">RECEIVER</button>
     </div>
 
     <div id="admin-view" class="hidden">
         <div class="deck">
-            <input id="yLink" placeholder="Link..." style="width:50%; padding:10px; font-size:1rem;">
-            <button onclick="load()" style="font-size:1rem; padding:10px 15px;">LOAD</button>
-            <div style="margin-top:15px; display:flex; gap:10px;">
-                <button onclick="reqPlay()" style="flex:1; background:var(--accent);">▶ PLAY (SYNC)</button>
-                <button onclick="reqPause()" style="flex:1; background:#333; color:white; box-shadow:none;">⏸ PAUSE</button>
-            </div>
-            <div style="text-align:center; margin-top:10px; font-family:monospace;" id="admTime">0.00s</div>
+            <input id="yLink" placeholder="YOUTUBE LINK" style="width:60%; font-size:1rem; padding:10px;">
+            <button onclick="load()" style="font-size:1rem; padding:10px;">LOAD</button>
         </div>
         
-        <div class="deck user-list" id="uList"></div>
-        <div class="joy-area" id="joyBase"><div class="knob" id="joyKnob"></div></div>
+        <div class="deck" style="flex-grow: 1; display:flex; flex-direction:column; justify-content:center;">
+            <div id="admTime" style="text-align:center; font-size:3rem;">0.00s</div>
+            <button class="play-btn" onclick="masterPlay()">▶ EXECUTE PLAY</button>
+            <button class="play-btn" onclick="masterPause()" style="background:#440000; color:var(--red); border-color:var(--red); height:60px; font-size:1.5rem;">⏸ HALT</button>
+        </div>
+
+        <div class="deck">
+            <div class="joy-pad" id="joyBase"><div class="knob" id="joyKnob"></div></div>
+        </div>
     </div>
 
     <div id="user-view" class="hidden flex-c">
-        <div class="ping-display" id="pingDisplay">Offset: 0ms</div>
-        
-        <div class="status-big" id="uStatus">READY</div>
-        <div class="sub-status" id="uMode">Waiting for Command...</div>
-        
-        <h2 id="volDisp" style="margin-top:60px; font-size:4rem;">100%</h2>
-        <p style="color:#555;">Volume</p>
-
-        <div style="margin-top:30px; border:1px solid #333; padding:10px; border-radius:10px;">
-            <p style="margin:0; font-size:0.8rem; color:#aaa;">Hardware Start-up Compensation</p>
-            <input type="range" min="0" max="1000" value="500" step="50" oninput="updateComp(this.value)" style="width:80%;">
-            <div id="compVal" style="color:var(--accent);">500ms (Auto)</div>
-        </div>
+        <div class="drift-info" id="pingStats">LATENCY: 0.00ms</div>
+        <div class="status-text" id="uStatus">STANDBY</div>
+        <h2 id="volDisp" style="font-size:5rem; margin-top:50px;">100%</h2>
+        <button onclick="hardSync()" style="margin-top:30px; font-size:1rem; background:transparent; border:1px solid #333; color:#555;">RESYNC ENGINE</button>
     </div>
 
     <div id="player-wrapper"><div id="player"></div></div>
@@ -90,12 +76,13 @@
         let player;
         let role = '';
         
-        // GLOBAL CLOCK SYNC
-        let timeOffset = 0; // Difference between Server and Client time
-        let HARDWARE_COMPENSATION = 500; // Default 500ms early start to fix lag
+        // 🔥 THE SECRET WEAPON: ADMIN DELAY
+        // Admin waits this many ms before playing locally, 
+        // giving the user time to catch up.
+        const ADMIN_DELAY_MS = 1000; 
 
         function start(r) {
-            let name = document.getElementById('uName').value || "Guest";
+            let name = document.getElementById('uName').value || "Unit 1";
             role = r;
             
             // Audio Unlock
@@ -109,23 +96,13 @@
             if(role === 'admin') {
                 document.getElementById('admin-view').classList.remove('hidden');
                 setupJoy();
-                startAdminPulse();
+                startAdminClock();
             } else {
                 document.getElementById('user-view').classList.remove('hidden');
             }
             socket.emit('join', { name: name, role: role });
         }
 
-        // --- CLOCK SYNC ---
-        socket.on('clock_sync', (data) => {
-            let now = Date.now();
-            // Calculate approximate offset (Client = Server + Offset)
-            // Ideally we need ping/pong, but single way is okay for now
-            timeOffset = now - data.serverTime;
-            document.getElementById('pingDisplay').innerText = `Clock Offset: ${timeOffset}ms`;
-        });
-
-        // --- YOUTUBE ---
         function onYouTubeIframeAPIReady() {
             player = new YT.Player('player', {
                 height: '100%', width: '100%', videoId: '',
@@ -134,17 +111,45 @@
             });
         }
 
-        // --- ADMIN ---
-        function startAdminPulse() {
+        // --- ADMIN ENGINE ---
+        function startAdminClock() {
             setInterval(() => {
                 if(player && player.getCurrentTime) {
                     let t = player.getCurrentTime();
-                    document.getElementById('admTime').innerText = t.toFixed(2) + "s";
-                    if(player.getPlayerState()===1) {
-                        socket.emit('admin_heartbeat', { time: t, isPlaying: true });
+                    document.getElementById('admTime').innerText = t.toFixed(2);
+                    
+                    // Continuous Sync Pulse
+                    if(player.getPlayerState() === 1) {
+                        socket.emit('admin_pulse', {
+                            time: t,
+                            isPlaying: true
+                        });
                     }
                 }
-            }, 500);
+            }, 200);
+        }
+
+        // 🔥 MASTER PLAY LOGIC
+        function masterPlay() {
+            if(!player) return;
+            let t = player.getCurrentTime();
+            
+            // 1. Send command to User IMMEDIATELY
+            socket.emit('master_play', { seekTime: t });
+
+            // 2. Admin WAITS (Simulating Lag)
+            // This allows the user to receive the signal and start 
+            // BEFORE the admin actually starts.
+            setTimeout(() => {
+                player.playVideo();
+            }, ADMIN_DELAY_MS);
+        }
+
+        function masterPause() {
+            if(!player) return;
+            let t = player.getCurrentTime();
+            socket.emit('master_pause', { seekTime: t });
+            player.pauseVideo(); // Admin pauses immediately
         }
 
         function load() {
@@ -155,100 +160,73 @@
             else if (url.length === 11) id = url;
             if(id.length===11) socket.emit('change_track', id);
         }
-        function reqPlay() { if(player) socket.emit('request_play', player.getCurrentTime()); }
-        function reqPause() { if(player) socket.emit('request_pause', player.getCurrentTime()); }
 
-        socket.on('user_update', (users) => {
-            if(role!=='admin') return;
-            let d = document.getElementById('uList'); d.innerHTML = "";
-            for(let k in users) if(users[k].role!=='admin') 
-                d.innerHTML += `<div class="user-item"><span>${users[k].name}</span><span style="color:#0f0">●</span></div>`;
-        });
-
-        // --- USER LOGIC (PROFESSIONAL SYNC) ---
+        // --- USER ENGINE ---
         socket.on('load_track', (id) => player.loadVideoById(id));
 
-        // 🚀 PRECISE LAUNCHER
-        socket.on('execute_launch', (data) => {
-            // 1. Get Local Time
+        // ⚡ EXECUTE PLAY
+        socket.on('execute_play', (data) => {
+            if(role !== 'user') return;
+            
+            // User receives command INSTANTLY.
+            // Since Admin is waiting 1000ms, User has a headstart.
+            // This cancels out the network latency.
+            
             let now = Date.now();
-            
-            // 2. Adjust Server Target to Local Time using Clock Offset
-            let myTargetTime = data.serverTarget + timeOffset;
-            
-            // 3. Calculate Wait Duration
-            let waitTime = myTargetTime - now;
+            let networkLag = (now - data.timestamp); // How long msg took
 
-            // 4. APPLY HARDWARE COMPENSATION
-            // Subtract the time your phone needs to wake up (e.g. 500ms)
-            let actualWait = waitTime - HARDWARE_COMPENSATION; 
-            
-            if(actualWait < 0) actualWait = 0; // If lag is huge, play immediately
+            document.getElementById('uStatus').innerText = "SYNCED";
+            document.getElementById('uStatus').style.color = "var(--neon)";
 
-            document.getElementById('uStatus').innerText = "ARMED";
-            document.getElementById('uMode').innerText = `Compensating ${HARDWARE_COMPENSATION}ms hardware lag...`;
-
-            // Seek to position
-            player.seekTo(data.seekTo, true);
-            player.pauseVideo();
-
-            // 5. Fire Command Early
-            setTimeout(() => {
-                player.playVideo();
-                document.getElementById('uStatus').innerText = "PLAYING";
-                document.getElementById('uMode').innerText = "Synced.";
-                
-                // Double Check: After 1s, check if we are behind
-                setTimeout(autoCorrect, 1000, data.seekTo);
-
-            }, actualWait);
+            // Just Play. Don't think.
+            // The Admin's delay handles the math.
+            player.seekTo(data.seekTime, true);
+            player.playVideo();
         });
 
-        socket.on('execute_pause', (time) => {
-            player.seekTo(time, true);
+        socket.on('execute_pause', (data) => {
+            if(role !== 'user') return;
+            player.seekTo(data.seekTime, true);
             player.pauseVideo();
-            document.getElementById('uStatus').innerText = "PAUSED";
+            document.getElementById('uStatus').innerText = "HALTED";
+            document.getElementById('uStatus').style.color = "var(--red)";
         });
 
-        // Drift Correction (Gentle)
-        socket.on('sync_pulse', (data) => {
+        // ⚡ CONTINUOUS CORRECTION
+        socket.on('sync_correction', (data) => {
             if(role !== 'user' || !player) return;
-            // Calculate where Admin is NOW
+            if(player.getPlayerState() !== 1) return; // Only if playing
+
             let now = Date.now();
-            let msgTravelTime = (now - (data.serverTimestamp + timeOffset)) / 1000;
-            let adminRealTime = data.time + msgTravelTime;
+            // Estimate Admin's REAL time (Data Time + Network Time)
+            let latency = (now - data.serverTime) / 1000;
+            // Admin is actually here:
+            // (Note: Admin started 1s late, so we don't need to add that back, 
+            // we just match the timestamp)
+            let targetTime = data.time + latency; 
 
             let myTime = player.getCurrentTime();
-            let drift = myTime - adminRealTime; // + means I am ahead, - means behind
+            let diff = myTime - targetTime; // + I am ahead, - I am behind
 
-            if(Math.abs(drift) > 1.5) {
-                // Hard Sync if drift is huge
-                player.seekTo(adminRealTime, true);
-            } else if (drift < -0.3) {
-                // Behind? Speed up slightly
+            document.getElementById('pingStats').innerText = `DRIFT: ${(diff*1000).toFixed(0)}ms`;
+
+            // AGGRESSIVE CORRECTION
+            if (Math.abs(diff) > 0.5) {
+                // If more than 0.5s off, Hard Seek
+                player.seekTo(targetTime, true);
+            } else if (diff < -0.05) {
+                // Behind? Go faster
                 player.setPlaybackRate(1.1);
-            } else if (drift > 0.3) {
-                // Ahead? Slow down
+            } else if (diff > 0.05) {
+                // Ahead? Go slower
                 player.setPlaybackRate(0.9);
             } else {
                 player.setPlaybackRate(1.0);
             }
         });
 
-        function autoCorrect(startTime) {
-            // If hardware was SUPER slow, we might still be at 0.0s
-            // Seek to where we should be
-            let current = player.getCurrentTime();
-            if(Math.abs(current - startTime) < 0.1) {
-                // Video didn't start! Force jump ahead
-                player.seekTo(startTime + 1.0, true); 
-            }
-        }
-
-        // Hardware Compensation Slider
-        function updateComp(val) {
-            HARDWARE_COMPENSATION = parseInt(val);
-            document.getElementById('compVal').innerText = val + "ms";
+        function hardSync() {
+            if(player) player.playVideo();
         }
 
         // Spatial Audio
@@ -268,7 +246,7 @@
                 let cx = e.touches?e.touches[0].clientX:e.clientX;
                 let cy = e.touches?e.touches[0].clientY:e.clientY;
                 let r = pad.getBoundingClientRect();
-                let x = cx-(r.left+75), y = cy-(r.top+75);
+                let x = cx-(r.left+90), y = cy-(r.top+90);
                 let dist = Math.sqrt(x*x+y*y);
                 if(dist>60){ x=(x/dist)*60; y=(y/dist)*60; }
                 knob.style.transform=`translate(-50%,-50%) translate(${x}px,${y}px)`;
