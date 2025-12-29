@@ -5,48 +5,32 @@ const server = http.createServer(app);
 const { Server } = require("socket.io");
 const io = new Server(server);
 
-app.get('/', (req, res) => { res.sendFile(__dirname + '/index.html'); });
-
-let users = {};
-
-io.on('connection', (socket) => {
-    
-    socket.on('join', (data) => {
-        users[socket.id] = { name: data.name, role: data.role };
-        io.emit('user_update', users);
-    });
-
-    socket.on('disconnect', () => {
-        delete users[socket.id];
-        io.emit('user_update', users);
-    });
-
-    // === ⚡ ZERO LATENCY PROTOCOL ⚡ ===
-    
-    // 1. MASTER PLAY COMMAND
-    socket.on('master_play', (data) => {
-        // data contains { seekTime: 10.5 }
-        // Broadcast to everyone to PLAY NOW
-        io.emit('execute_play', {
-            seekTime: data.seekTime,
-            timestamp: Date.now()
-        });
-    });
-
-    // 2. MASTER PAUSE COMMAND
-    socket.on('master_pause', (data) => {
-        io.emit('execute_pause', { seekTime: data.seekTime });
-    });
-
-    // 3. SYNC HEARTBEAT (Drift Correction)
-    socket.on('admin_pulse', (data) => {
-        data.serverTime = Date.now();
-        socket.broadcast.emit('sync_correction', data);
-    });
-
-    socket.on('change_track', (id) => io.emit('load_track', id));
-    socket.on('admin_joystick', (d) => socket.broadcast.emit('vol_adjust', d));
+app.get('/', (req, res) => {
+  res.sendFile(__dirname + '/index.html');
 });
 
-const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => { console.log("Zero Latency Engine Online"); });
+let currentVideoID = "dQw4w9WgXcQ"; 
+
+io.on('connection', (socket) => {
+  // Notun keu ele current video dao
+  socket.emit('change_video', currentVideoID);
+
+  socket.on('change_video', (newID) => {
+    currentVideoID = newID;
+    io.emit('change_video', newID);
+  });
+
+  socket.on('video_control', (msg) => {
+    // Shobaike pathao (Broadcast)
+    socket.broadcast.emit('video_control', msg);
+  });
+
+  // Host theke time update niye shobaike pathano (Sync Heartbeat)
+  socket.on('time_update', (msg) => {
+    socket.broadcast.emit('time_update', msg);
+  });
+});
+
+server.listen(3000, () => {
+  console.log('Server Ready on port 3000');
+});
