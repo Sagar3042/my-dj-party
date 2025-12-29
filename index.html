@@ -11,17 +11,17 @@
             --card: #141414;
             --accent: #00e5ff; /* Cyan Neon */
             --danger: #ff2a6d; /* Pink Neon */
+            --warning: #ffcc00; /* Yellow */
             --text: #ffffff;
             --glass: rgba(255, 255, 255, 0.05);
         }
 
         body { background: var(--bg); color: var(--text); font-family: 'Rajdhani', sans-serif; margin: 0; overflow: hidden; }
         
-        /* UTILS */
         .hidden { display: none !important; }
         .flex-center { display: flex; justify-content: center; align-items: center; }
         
-        /* 1. LOGIN SCREEN */
+        /* LOGIN */
         #login-screen {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: radial-gradient(circle at center, #1b1b1b 0%, #000 100%);
@@ -34,7 +34,6 @@
             padding: 15px; width: 280px; border-radius: 8px; font-size: 1.2rem;
             text-align: center; outline: none; margin-bottom: 20px; font-family: inherit;
         }
-        input::placeholder { color: #555; }
 
         .btn {
             padding: 15px 40px; border-radius: 5px; border: none; font-weight: 700;
@@ -43,9 +42,8 @@
         }
         .btn-primary { background: var(--accent); color: black; box-shadow: 0 0 15px rgba(0, 229, 255, 0.4); }
         .btn-danger { background: var(--danger); color: white; box-shadow: 0 0 15px rgba(255, 42, 109, 0.4); }
-        .btn:active { transform: scale(0.95); }
 
-        /* 2. ADMIN DASHBOARD */
+        /* ADMIN UI */
         #admin-ui { height: 100vh; display: grid; grid-template-rows: auto 1fr auto; padding: 10px; box-sizing: border-box; }
         
         .top-deck {
@@ -57,13 +55,14 @@
             overflow-y: auto; padding: 10px;
         }
         
-        /* User Row Card */
+        /* USER CARD */
         .user-card {
             background: #0a0a0a; border-left: 3px solid #333; padding: 12px;
             margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center;
             border-radius: 4px; transition: 0.3s;
         }
         .user-card.lagging { border-left-color: var(--danger); background: rgba(255, 42, 109, 0.1); }
+        .user-card.ahead { border-left-color: var(--warning); background: rgba(255, 204, 0, 0.1); }
         .user-card.synced { border-left-color: var(--accent); }
         
         .user-info { display: flex; flex-direction: column; }
@@ -76,7 +75,7 @@
             animation: pulse 1.5s infinite;
         }
 
-        /* 3. USER UI */
+        /* USER UI */
         #user-ui {
             height: 100vh; flex-direction: column; text-align: center; 
             background: radial-gradient(circle at bottom, #111, #000);
@@ -98,14 +97,11 @@
         }
         .vol-text { font-size: 3rem; font-weight: bold; z-index: 2; }
 
-        /* JOYSTICK */
         .joystick-cont { position: relative; width: 100%; height: 180px; display: flex; justify-content: center; align-items: center; background: #080808; border-radius: 10px; margin-top: 5px; }
         .stick-base { width: 150px; height: 150px; background: #111; border-radius: 50%; border: 2px solid #333; position: relative; }
         .stick-knob { width: 50px; height: 50px; background: var(--accent); border-radius: 50%; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); box-shadow: 0 0 15px var(--accent); }
 
-        /* Hidden Player */
         #player-wrapper { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; top: -1000px; }
-        
         @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.7; } 100% { opacity: 1; } }
     </style>
 </head>
@@ -130,14 +126,10 @@
         </div>
 
         <h4 style="margin: 10px 0; color:#555; text-transform:uppercase;">Active Devices</h4>
-        <div class="monitor-panel" id="user-list">
-            </div>
+        <div class="monitor-panel" id="user-list"></div>
 
         <div class="joystick-cont">
-            <div class="stick-base" id="js-base">
-                <div class="stick-knob" id="js-knob"></div>
-            </div>
-            <div style="position:absolute; bottom:10px; color:#333; font-size:0.8rem;">SPATIAL AUDIO</div>
+            <div class="stick-base" id="js-base"><div class="stick-knob" id="js-knob"></div></div>
         </div>
     </div>
 
@@ -150,7 +142,6 @@
             <div class="vol-text" id="vol-text">100</div>
         </div>
         <p style="color:#777;">Volume Level</p>
-
         <div id="sync-msg" style="color: var(--accent); margin-top: 20px; font-size: 0.9rem;"></div>
     </div>
 
@@ -164,13 +155,11 @@
         let role = '';
         let myName = '';
         let adminCurrentTime = 0;
+        let lastAdminState = null;
 
-        // --- INIT ---
         function init(r) {
             myName = document.getElementById('username').value || "Guest";
             role = r;
-            
-            // Audio Unlock
             const ctx = new (window.AudioContext || window.webkitAudioContext)();
             const osc = ctx.createOscillator();
             const gain = ctx.createGain();
@@ -180,7 +169,6 @@
             osc.start();
 
             document.getElementById('login-screen').classList.add('hidden');
-            
             if(role === 'admin') {
                 document.getElementById('admin-ui').classList.remove('hidden');
                 setupJoystick();
@@ -192,7 +180,6 @@
             socket.emit('join', { name: myName, role: role });
         }
 
-        // --- YOUTUBE API ---
         function onYouTubeIframeAPIReady() {
             player = new YT.Player('player', {
                 height: '100%', width: '100%', videoId: '',
@@ -202,7 +189,7 @@
         }
         function onPlayerStateChange(e) {}
 
-        // --- ADMIN LOGIC ---
+        // --- ADMIN ---
         function startAdminLoop() {
             setInterval(() => {
                 if(player && player.getCurrentTime) {
@@ -210,14 +197,11 @@
                     adminCurrentTime = t;
                     let isPlaying = (player.getPlayerState() === 1);
                     document.getElementById('admin-time').innerText = t.toFixed(1);
-                    
-                    // Broadcast Heartbeat
                     socket.emit('admin_heartbeat', { time: t, isPlaying: isPlaying });
                 }
             }, 500);
         }
 
-        // Render User List
         socket.on('update_user_list', (users) => {
             if(role !== 'admin') return;
             const list = document.getElementById('user-list');
@@ -227,30 +211,30 @@
                 let u = users[id];
                 if(u.role === 'admin') continue;
 
-                let diff = Math.abs(adminCurrentTime - u.time);
-                let isLagging = diff > 1.0;
-                let statusClass = isLagging ? 'lagging' : 'synced';
-                let btnText = isLagging ? '⚠ FIX SYNC' : 'AUTO FIX';
+                let diff = u.time - adminCurrentTime; // + means ahead, - means behind
+                let statusClass = 'synced';
+                let statusText = "SYNCED";
+
+                if (diff < -1.5) { statusClass = 'lagging'; statusText = "LAGGING"; }
+                else if (diff > 1.0) { statusClass = 'ahead'; statusText = "TOO FAST"; }
 
                 list.innerHTML += `
                     <div class="user-card ${statusClass}">
                         <div class="user-info">
                             <span class="user-name">${u.name}</span>
-                            <span class="user-time">User: ${u.time.toFixed(1)}s | Lag: ${diff.toFixed(1)}s</span>
+                            <span class="user-time">Diff: ${diff > 0 ? '+' : ''}${diff.toFixed(1)}s (${statusText})</span>
                         </div>
-                        <button class="fix-btn" onclick="triggerFix('${id}')">${btnText}</button>
+                        <button class="fix-btn" onclick="triggerFix('${id}')">AUTO FIX</button>
                     </div>
                 `;
             }
         });
 
-        // 🔥 ADMIN FIX BUTTON CLICKED
         function triggerFix(targetId) {
             if(!player) return;
-            // Current Admin Time + 2.5s Buffer
+            // Admin tells user to jump to (AdminTime + 2.5s)
+            // But User's "Anti-Lead" logic will handle it if it goes too far
             let futureTime = player.getCurrentTime() + 2.5;
-            
-            // Send command to specific user
             socket.emit('admin_fix_user', { targetId: targetId, targetTime: futureTime });
         }
 
@@ -261,7 +245,6 @@
             else if (url.indexOf("youtu.be/") > -1) id = url.split('youtu.be/')[1].split('?')[0];
             else if (url.indexOf("shorts/") > -1) id = url.split('shorts/')[1].split('?')[0];
             else if (url.length === 11) id = url;
-            
             if(id.length === 11) {
                 socket.emit('change_track', id);
                 if(player) player.loadVideoById(id);
@@ -271,7 +254,7 @@
             if(player.getPlayerState() === 1) player.pauseVideo(); else player.playVideo();
         }
 
-        // --- USER LOGIC ---
+        // --- USER ---
         function startUserLoop() {
             setInterval(() => {
                 if(player && player.getCurrentTime) {
@@ -282,12 +265,36 @@
 
         socket.on('load_track', (id) => { if(player) player.loadVideoById(id); });
 
+        // 🔥 CRITICAL: ANTI-LEAD LOGIC 🔥
         socket.on('sync_pulse', (data) => {
             if(role !== 'user') return;
+            lastAdminState = data;
+
+            let myTime = player.getCurrentTime();
+            let adminTime = data.time;
+            let diff = myTime - adminTime; // Positive = I am ahead
+
+            // 1. CHECK IF AHEAD (Anti-Lead)
+            if (diff > 1.5) {
+                // If I am 1.5s ahead of Admin -> PAUSE & WAIT
+                document.getElementById('status-text').innerText = "TOO FAST";
+                document.getElementById('status-text').style.color = "var(--warning)";
+                document.getElementById('sync-msg').innerText = `Waiting for DJ... (${diff.toFixed(1)}s ahead)`;
+                
+                if(player.getPlayerState() === 1) player.pauseVideo();
+                return; // Stop here, don't do play logic
+            }
+
+            // 2. CHECK IF BEHIND (Normal Play Logic)
             if(data.isPlaying) {
                 document.getElementById('status-text').innerText = "PLAYING";
                 document.getElementById('status-text').style.color = "var(--accent)";
-                if(player.getPlayerState() !== 1 && player.getPlayerState() !== 3) player.playVideo();
+                document.getElementById('sync-msg').innerText = "";
+                
+                // Only play if stopped
+                if(player.getPlayerState() !== 1 && player.getPlayerState() !== 3) {
+                    player.playVideo();
+                }
             } else {
                 document.getElementById('status-text').innerText = "PAUSED";
                 document.getElementById('status-text').style.color = "#777";
@@ -295,14 +302,11 @@
             }
         });
 
-        // 🔥 RECEIVE FIX COMMAND FROM ADMIN
         socket.on('force_sync_execute', (targetTime) => {
             if(role !== 'user') return;
+            document.getElementById('sync-msg').innerText = `SYNCING...`;
             
-            document.getElementById('sync-msg').innerText = `SYNCING TO ${targetTime.toFixed(1)}s...`;
-            setTimeout(() => { document.getElementById('sync-msg').innerText = ""; }, 3000);
-
-            // Seek to future time and play
+            // Allow jump
             player.seekTo(targetTime, true);
             player.playVideo();
         });
@@ -312,15 +316,10 @@
             let dist = Math.sqrt(coords.x*coords.x + coords.y*coords.y);
             let vol = Math.max(0, 100 - (dist * 50));
             if(player) player.setVolume(vol);
-            
             document.getElementById('vol-text').innerText = Math.floor(vol);
-            // Visual Ring Update
-            let deg = (vol / 100) * 360; 
-            // Simplified visual update
             document.getElementById('vol-text').style.opacity = (vol/100) + 0.3;
         });
 
-        // JOYSTICK (Admin Only)
         function setupJoystick() {
             const pad = document.getElementById('js-base');
             const knob = document.getElementById('js-knob');
