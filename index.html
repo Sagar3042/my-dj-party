@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Advance Party Sync</title>
+    <title>Ultra Sync Party</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
         body { background-color: #0f0f0f; color: #eee; font-family: 'Segoe UI', sans-serif; margin: 0; padding: 20px; text-align: center; }
@@ -9,7 +9,7 @@
         /* Video Player Area */
         #player-wrapper { position: relative; max-width: 800px; margin: 0 auto; border: 2px solid #333; box-shadow: 0 0 20px rgba(0,0,0,0.5); background: black; aspect-ratio: 16/9; }
         
-        /* Waiting Screen Overlay */
+        /* Waiting Screen */
         #waiting-screen {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             background: #000; display: flex; flex-direction: column;
@@ -27,15 +27,33 @@
         button:hover { background: #0056b3; }
         .status { color: #00ff00; margin-top: 10px; font-size: 14px; }
 
-        /* ADMIN PANEL STYLES */
+        /* --- ADMIN PANEL STYLES --- */
         #admin-panel { display: none; margin-top: 30px; border-top: 2px solid #444; padding-top: 20px; text-align: left; max-width: 900px; margin-left: auto; margin-right: auto; }
-        .user-card { background: #252525; padding: 10px; margin-bottom: 10px; border-radius: 5px; display: flex; align-items: center; justify-content: space-between; border: 1px solid #333; }
-        .user-info { font-weight: bold; color: #ffcc00; width: 150px; }
         
-        .admin-btn { font-size: 12px; padding: 5px 10px; margin: 0 2px; }
-        .btn-sync { background: #28a745; }
-        .btn-minus { background: #dc3545; }
-        .btn-plus { background: #17a2b8; }
+        /* MASTER CONTROLS (BIG BUTTONS) */
+        .master-controls {
+            background: #2a2a2a; border: 2px solid #ff4444; padding: 15px;
+            text-align: center; margin-bottom: 20px; border-radius: 10px;
+        }
+        .big-btn {
+            font-size: 20px; padding: 15px 30px; margin: 10px;
+            border-radius: 8px; cursor: pointer; border: none; color: white;
+            font-weight: bold; width: 40%;
+        }
+        .big-minus { background: #dc3545; box-shadow: 0 4px 0 #a71d2a; }
+        .big-minus:active { box-shadow: none; transform: translateY(4px); }
+        
+        .big-plus { background: #28a745; box-shadow: 0 4px 0 #1e7e34; }
+        .big-plus:active { box-shadow: none; transform: translateY(4px); }
+
+        /* USER LIST CARDS */
+        .user-card { background: #252525; padding: 10px; margin-bottom: 10px; border-radius: 5px; display: flex; align-items: center; justify-content: space-between; border: 1px solid #333; }
+        .user-info { font-weight: bold; color: #ffcc00; width: 120px; overflow: hidden; text-overflow: ellipsis; }
+        
+        .admin-btn { font-size: 14px; padding: 8px 12px; margin: 0 2px; cursor: pointer; color: white; border: none; border-radius: 3px; }
+        .btn-sync { background: #007bff; }
+        .btn-minus { background: #d63384; }
+        .btn-plus { background: #6610f2; }
         
         .slider-container { display: flex; align-items: center; gap: 5px; font-size: 12px; color: #aaa; }
         input[type=range] { width: 80px; }
@@ -61,9 +79,8 @@
         
         <div id="player-wrapper">
             <div id="waiting-screen">
-                <h2>Waiting for Host to pick a video...</h2>
+                <h2>Waiting for Host...</h2>
             </div>
-
             <div id="player"></div>
             <div class="video-overlay" id="clickBlocker"></div>
         </div>
@@ -76,10 +93,19 @@
         </div>
 
         <div id="admin-panel">
-            <h2 style="color: #ff4444; border-bottom: 1px solid #444; padding-bottom: 5px;">
-                👑 Admin Dashboard 
-                <button onclick="syncAll()" style="float: right; font-size: 14px; background: red;">⚡ SYNC EVERYONE</button>
-            </h2>
+            
+            <div class="master-controls">
+                <h3 style="margin:0 0 10px 0; color: #fff;">🌍 GLOBAL LATENCY ADJUST (ALL USERS)</h3>
+                <button class="big-btn big-minus" onclick="adjustAll(-0.5)">- 0.5s (Eariler)</button>
+                <button class="big-btn big-plus" onclick="adjustAll(0.5)">+ 0.5s (Later)</button>
+                <br>
+                <small style="color:#aaa">Clicking these will shift EVERYONE'S time instantly.</small>
+            </div>
+
+            <h3 style="color: #ffcc00; border-bottom: 1px solid #444; padding-bottom: 5px;">
+                👤 Individual Users
+                <button onclick="syncAll()" style="float: right; font-size: 12px; background: #444;">RESET ALL SYNC</button>
+            </h3>
             <div id="user-list-container"></div>
         </div>
     </div>
@@ -93,8 +119,9 @@
         var isAdmin = false;
         var myName = "";
         
+        // Sync Logic Variables
         var manualOffset = 0; 
-        var networkLatency = 0.5; 
+        var networkLatency = 0.5; // Base buffer
         var lastHostTime = 0;
         var lastPacketTime = 0;
 
@@ -111,7 +138,7 @@
                 document.getElementById("videoLoader").style.display = "block";
                 document.getElementById("admin-panel").style.display = "block";
                 document.getElementById("clickBlocker").style.display = "none"; 
-                document.getElementById("waiting-screen").innerHTML = "<h2>Paste a link below to start</h2>";
+                document.getElementById("waiting-screen").innerHTML = "<h2>Paste Link to Start</h2>";
             } else {
                 document.getElementById("clickBlocker").style.display = "block"; 
             }
@@ -128,73 +155,84 @@
 
         function loadNewVideo() {
             var url = document.getElementById("videoUrlInput").value;
-            // RESTORED ORIGINAL PARSING LOGIC
             var videoId = extractVideoID(url);
-            
             if(videoId) {
                 socket.emit('change_video', videoId);
                 document.getElementById("videoUrlInput").value = "";
             } else {
-                alert("Invalid YouTube Link! Please copy full link.");
+                alert("Invalid YouTube Link!");
             }
         }
 
-        // --- ORIGINAL ROBUST ID EXTRACTOR ---
         function extractVideoID(url) {
             var regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
             var match = url.match(regExp);
             return (match && match[2].length == 11) ? match[2] : null;
         }
 
-        // --- SOCKET LISTENERS ---
-        
-        socket.on('change_video', (id) => {
-            // Hide waiting screen when video arrives
-            document.getElementById("waiting-screen").style.display = "none";
+        // --- CORE SYNC FUNCTION ---
+        function performSmartSync() {
+            if(!player || !player.seekTo) return;
             
-            if(player && player.loadVideoById) {
-                player.loadVideoById(id);
+            // Calculation: HostTime + TimeSincePacket + Buffer + ManualAdjustment
+            let now = Date.now();
+            let timePassed = (now - lastPacketTime) / 1000;
+            let target = lastHostTime + timePassed + networkLatency + manualOffset;
+            
+            player.seekTo(target, true);
+            player.playVideo();
+            player.unMute();
+            
+            if(!isAdmin) {
+                document.getElementById("syncStatus").innerText = "Offset: " + manualOffset.toFixed(2) + "s | Syncing...";
+                setTimeout(() => {
+                     document.getElementById("syncStatus").innerText = "Host: " + lastHostTime.toFixed(1) + "s | Offset: " + manualOffset.toFixed(2) + "s";
+                }, 1000);
             }
+        }
+
+        // --- SOCKET LISTENERS ---
+        socket.on('change_video', (id) => {
+            document.getElementById("waiting-screen").style.display = "none";
+            if(player && player.loadVideoById) player.loadVideoById(id);
         });
 
         socket.on('time_update', (msg) => {
             lastHostTime = msg.time;
             lastPacketTime = Date.now();
             if(!isAdmin) {
-                document.getElementById("syncStatus").innerText = "Host Time: " + msg.time.toFixed(1) + "s";
+                // Just update UI, don't force seek every second unless drift is huge (future improvement)
+                document.getElementById("syncStatus").innerText = "Host: " + msg.time.toFixed(1) + "s | Offset: " + manualOffset.toFixed(1) + "s";
             }
         });
 
+        // --- COMMAND RECEIVER ---
         socket.on('force_client_update', (data) => {
             if(isAdmin) return; 
 
             if(data.type === 'sync') {
-                let now = Date.now();
-                let timePassed = (now - lastPacketTime) / 1000;
-                let target = lastHostTime + timePassed + networkLatency + manualOffset;
-                
-                player.seekTo(target, true);
-                player.playVideo();
-                player.unMute(); 
+                performSmartSync();
                 
             } else if (data.type === 'offset') {
-                manualOffset += data.val; 
+                // Update Offset
+                manualOffset += data.val;
+                // IMMEDIATE APPLY: Re-sync immediately to show effect
+                performSmartSync();
+                
             } else if (data.type === 'volume') {
-                if(player && player.setVolume) {
-                    player.setVolume(data.val);
-                }
+                if(player && player.setVolume) player.setVolume(data.val);
             }
         });
 
         socket.on('video_control', (msg) => {
             if(isAdmin) return;
             document.getElementById("waiting-screen").style.display = "none";
-            
             if(msg.action === 'play') player.playVideo();
             else if(msg.action === 'pause') player.pauseVideo();
             else if(msg.action === 'seek') player.seekTo(msg.time);
         });
 
+        // --- ADMIN UI UPDATER ---
         socket.on('update_user_list', (users) => {
             if(!isAdmin) return;
             const container = document.getElementById("user-list-container");
@@ -208,10 +246,9 @@
                 row.innerHTML = `
                     <div class="user-info">${u.name}</div>
                     
-                    <div>
-                        <small>Latency:</small>
-                        <button class="admin-btn btn-minus" onclick="adjustUser('${u.id}', 'offset', -0.05)">-</button>
-                        <button class="admin-btn btn-plus" onclick="adjustUser('${u.id}', 'offset', 0.05)">+</button>
+                    <div style="display:flex; align-items:center;">
+                        <button class="admin-btn btn-minus" onclick="adjustUser('${u.id}', 'offset', -0.5)">- 0.5s</button>
+                        <button class="admin-btn btn-plus" onclick="adjustUser('${u.id}', 'offset', 0.5)">+ 0.5s</button>
                     </div>
 
                     <div class="slider-container">
@@ -225,19 +262,28 @@
             });
         });
 
+        // --- ADMIN FUNCTIONS ---
         function forceSyncUser(socketId) {
             socket.emit('admin_action', { targetID: socketId, type: 'sync' });
         }
 
+        // Adjust Single User
         function adjustUser(socketId, type, val) {
             val = parseFloat(val);
             socket.emit('admin_action', { targetID: socketId, type: type, val: val });
         }
 
+        // GLOBAL Adjust (All Users)
+        function adjustAll(val) {
+            socket.emit('admin_action', { targetID: 'all', type: 'offset', val: val });
+        }
+
+        // Reset Sync (Standard)
         function syncAll() {
             socket.emit('admin_action', { targetID: 'all', type: 'sync' });
         }
 
+        // --- HOST BROADCAST LOOP ---
         setInterval(() => {
             if (isAdmin && player && player.getPlayerState && player.getPlayerState() == YT.PlayerState.PLAYING) {
                 socket.emit('time_update', { time: player.getCurrentTime() });
