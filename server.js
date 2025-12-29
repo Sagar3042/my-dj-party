@@ -13,47 +13,25 @@ io.on('connection', (socket) => {
     
     // User Join
     socket.on('join', (data) => {
-        users[socket.id] = {
-            id: socket.id,
-            name: data.name,
-            role: data.role,
-            time: 0
-        };
-        io.emit('update_user_list', users);
+        users[socket.id] = { name: data.name, role: data.role };
+        io.emit('user_update', users);
     });
 
     socket.on('disconnect', () => {
         delete users[socket.id];
-        io.emit('update_user_list', users);
+        io.emit('user_update', users);
     });
 
-    // User Reporting Time
-    socket.on('report_time', (t) => {
-        if(users[socket.id]) {
-            users[socket.id].time = t;
-            io.emit('update_user_list', users); // Admin sees updated time
-        }
-    });
-
-    // --- ADMIN COMMANDS ---
-
-    // 1. Admin Heartbeat (Continuous Time)
-    socket.on('admin_heartbeat', (data) => {
+    // === HEARTBEAT SYNC (High Frequency) ===
+    socket.on('admin_signal', (data) => {
+        // data = { time: 10.5, isPlaying: true, timestamp: 123456789 }
         socket.broadcast.emit('sync_pulse', data);
     });
 
-    // 2. Change Track
+    // Control Commands
     socket.on('change_track', (id) => io.emit('load_track', id));
-
-    // 3. TARGETED SYNC FIX (The Magic Logic)
-    socket.on('admin_fix_user', (data) => {
-        // data = { targetId: '...', targetTime: 12.5 }
-        io.to(data.targetId).emit('force_sync_execute', data.targetTime);
-    });
-
-    // 4. Joystick
-    socket.on('admin_joystick', (coords) => socket.broadcast.emit('adjust_volume', coords));
+    socket.on('admin_joystick', (data) => socket.broadcast.emit('vol_adjust', data));
 });
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => { console.log("Professional Server Running"); });
+server.listen(PORT, () => { console.log("Speed Sync Engine Running"); });

@@ -3,146 +3,75 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Studio Sync Pro</title>
-    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;700&display=swap" rel="stylesheet">
+    <title>Perfect Speed Sync</title>
+    <link href="https://fonts.googleapis.com/css2?family=Teko:wght@400;600&display=swap" rel="stylesheet">
     <style>
-        :root {
-            --bg: #050505;
-            --card: #141414;
-            --accent: #00e5ff; /* Cyan Neon */
-            --danger: #ff2a6d; /* Pink Neon */
-            --warning: #ffcc00; /* Yellow */
-            --text: #ffffff;
-            --glass: rgba(255, 255, 255, 0.05);
-        }
-
-        body { background: var(--bg); color: var(--text); font-family: 'Rajdhani', sans-serif; margin: 0; overflow: hidden; }
+        :root { --main: #00ff88; --bg: #050505; --panel: #111; }
+        body { background: var(--bg); color: white; font-family: 'Teko', sans-serif; margin: 0; overflow: hidden; }
         
         .hidden { display: none !important; }
-        .flex-center { display: flex; justify-content: center; align-items: center; }
-        
-        /* LOGIN */
-        #login-screen {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: radial-gradient(circle at center, #1b1b1b 0%, #000 100%);
-            z-index: 999; flex-direction: column;
-        }
-        h1 { font-size: 3rem; letter-spacing: 2px; text-shadow: 0 0 20px var(--accent); margin-bottom: 30px; }
-        
-        input {
-            background: var(--glass); border: 1px solid #333; color: var(--accent);
-            padding: 15px; width: 280px; border-radius: 8px; font-size: 1.2rem;
-            text-align: center; outline: none; margin-bottom: 20px; font-family: inherit;
-        }
+        .flex-c { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; }
 
-        .btn {
-            padding: 15px 40px; border-radius: 5px; border: none; font-weight: 700;
-            cursor: pointer; font-size: 1.1rem; text-transform: uppercase; transition: 0.3s;
-            margin: 10px; width: 220px; clip-path: polygon(10% 0, 100% 0, 100% 80%, 90% 100%, 0 100%, 0 20%);
-        }
-        .btn-primary { background: var(--accent); color: black; box-shadow: 0 0 15px rgba(0, 229, 255, 0.4); }
-        .btn-danger { background: var(--danger); color: white; box-shadow: 0 0 15px rgba(255, 42, 109, 0.4); }
+        /* LOGIN */
+        #login { position: fixed; z-index: 10; background: rgba(0,0,0,0.95); width: 100%; }
+        input { background: #222; border: 1px solid #444; color: var(--main); padding: 10px; font-size: 1.2rem; text-align: center; margin: 10px; width: 60%; }
+        button { background: var(--main); color: black; border: none; padding: 10px 30px; font-size: 1.5rem; font-weight: bold; cursor: pointer; margin: 5px; clip-path: polygon(10% 0, 100% 0, 100% 80%, 90% 100%, 0 100%, 0 20%); }
+        button:active { transform: scale(0.95); }
 
         /* ADMIN UI */
-        #admin-ui { height: 100vh; display: grid; grid-template-rows: auto 1fr auto; padding: 10px; box-sizing: border-box; }
+        #admin-view { padding: 20px; display: grid; grid-template-rows: auto 1fr auto; height: 100vh; box-sizing: border-box; }
+        .deck { background: var(--panel); padding: 15px; border: 1px solid #333; margin-bottom: 10px; }
         
-        .top-deck {
-            background: var(--card); padding: 15px; border-radius: 10px;
-            border: 1px solid #222; display: flex; gap: 10px; margin-bottom: 10px;
-        }
-        .monitor-panel {
-            background: var(--card); border: 1px solid #222; border-radius: 10px;
-            overflow-y: auto; padding: 10px;
-        }
-        
-        /* USER CARD */
-        .user-card {
-            background: #0a0a0a; border-left: 3px solid #333; padding: 12px;
-            margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center;
-            border-radius: 4px; transition: 0.3s;
-        }
-        .user-card.lagging { border-left-color: var(--danger); background: rgba(255, 42, 109, 0.1); }
-        .user-card.ahead { border-left-color: var(--warning); background: rgba(255, 204, 0, 0.1); }
-        .user-card.synced { border-left-color: var(--accent); }
-        
-        .user-info { display: flex; flex-direction: column; }
-        .user-name { font-size: 1.1rem; font-weight: bold; }
-        .user-time { font-size: 0.9rem; color: #777; font-family: monospace; }
-        
-        .fix-btn {
-            background: var(--danger); color: white; border: none; padding: 8px 15px;
-            font-weight: bold; cursor: pointer; border-radius: 4px; font-size: 0.8rem;
-            animation: pulse 1.5s infinite;
-        }
-
         /* USER UI */
-        #user-ui {
-            height: 100vh; flex-direction: column; text-align: center; 
-            background: radial-gradient(circle at bottom, #111, #000);
-        }
-        .status-display {
-            font-size: 2rem; color: var(--accent); margin: 20px; font-weight: bold;
-            text-shadow: 0 0 10px var(--accent);
-        }
-        .vol-ring {
-            width: 200px; height: 200px; border-radius: 50%;
-            border: 5px solid #222; display: flex; justify-content: center; align-items: center;
-            margin: 30px auto; position: relative;
-            box-shadow: 0 0 30px rgba(0,0,0,0.5);
-        }
-        .vol-fill {
-            position: absolute; width: 100%; height: 100%; border-radius: 50%;
-            border: 5px solid var(--accent); border-top-color: transparent; border-left-color: transparent;
-            transform: rotate(45deg); transition: transform 0.2s;
-        }
-        .vol-text { font-size: 3rem; font-weight: bold; z-index: 2; }
+        #user-view { text-align: center; }
+        .status-big { font-size: 4rem; margin: 0; line-height: 1; color: var(--main); text-shadow: 0 0 20px var(--main); }
+        .sync-mode { font-size: 1.2rem; color: #aaa; margin-top: 10px; font-family: sans-serif; }
+        
+        /* JOYSTICK */
+        .joy-area { width: 200px; height: 200px; border: 2px solid #333; border-radius: 50%; margin: 20px auto; position: relative; background: #080808; }
+        .knob { width: 60px; height: 60px; background: var(--main); border-radius: 50%; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); box-shadow: 0 0 15px var(--main); }
 
-        .joystick-cont { position: relative; width: 100%; height: 180px; display: flex; justify-content: center; align-items: center; background: #080808; border-radius: 10px; margin-top: 5px; }
-        .stick-base { width: 150px; height: 150px; background: #111; border-radius: 50%; border: 2px solid #333; position: relative; }
-        .stick-knob { width: 50px; height: 50px; background: var(--accent); border-radius: 50%; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); box-shadow: 0 0 15px var(--accent); }
+        /* USER LIST */
+        .user-list { max-height: 200px; overflow-y: auto; text-align: left; }
+        .user-item { padding: 5px; border-bottom: 1px solid #222; color: #888; }
 
-        #player-wrapper { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; top: -1000px; }
-        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.7; } 100% { opacity: 1; } }
+        #player-wrapper { position: absolute; top: -2000px; opacity: 0; pointer-events: none; }
     </style>
 </head>
 <body>
 
-    <div id="login-screen" class="flex-center">
-        <h1>SYNC <span style="color:var(--accent)">STUDIO</span></h1>
-        <input type="text" id="username" placeholder="Enter Device Name">
-        <button class="btn btn-primary" onclick="init('admin')">DJ CONSOLE</button>
-        <button class="btn btn-danger" onclick="init('user')">SPEAKER MODE</button>
+    <div id="login" class="flex-c">
+        <h1 style="font-size:3rem; margin:0;">SPEED <span style="color:var(--main)">SYNC</span></h1>
+        <input id="uName" placeholder="Enter Name">
+        <button onclick="start('admin')">DJ MODE</button>
+        <button onclick="start('user')" style="background:#00aaff; color:white;">LISTENER</button>
     </div>
 
-    <div id="admin-ui" class="hidden">
-        <div class="top-deck">
-            <input type="text" id="link" placeholder="Paste Link..." style="width:100%; margin:0; padding:10px;">
-            <button class="btn btn-primary" style="width:auto; margin:0; padding:10px 20px;" onclick="loadTrack()">LOAD</button>
+    <div id="admin-view" class="hidden">
+        <div class="deck">
+            <input id="yLink" placeholder="YouTube Link" style="width:60%;">
+            <button onclick="load()" style="font-size:1rem;">LOAD</button>
+            <div style="margin-top:10px; display:flex; justify-content:space-between;">
+                <button onclick="toggle()" style="width:48%">⏯ PLAY/PAUSE</button>
+                <div style="font-size:2rem; color:white;" id="admTime">0.0s</div>
+            </div>
         </div>
         
-        <div class="top-deck" style="justify-content: space-between; align-items: center;">
-            <button class="btn btn-primary" style="width:48%; margin:0;" onclick="togglePlay()">PLAY / PAUSE</button>
-            <div style="font-family: monospace; color: #888;">ADMIN: <span id="admin-time" style="color:white; font-size:1.2rem;">0.0</span>s</div>
-        </div>
+        <div class="deck user-list" id="uList"></div>
 
-        <h4 style="margin: 10px 0; color:#555; text-transform:uppercase;">Active Devices</h4>
-        <div class="monitor-panel" id="user-list"></div>
-
-        <div class="joystick-cont">
-            <div class="stick-base" id="js-base"><div class="stick-knob" id="js-knob"></div></div>
+        <div class="joy-area" id="joyBase">
+            <div class="knob" id="joyKnob"></div>
         </div>
     </div>
 
-    <div id="user-ui" class="hidden flex-center">
-        <h2 style="color:#555; letter-spacing: 2px; margin-top:20px;">LINKED TO DJ</h2>
-        <div class="status-display" id="status-text">WAITING...</div>
+    <div id="user-view" class="hidden flex-c">
+        <div class="status-big" id="uStatus">WAITING</div>
+        <div class="sync-mode" id="uMode">Speed: Normal</div>
         
-        <div class="vol-ring">
-            <div class="vol-fill" id="vol-fill"></div>
-            <div class="vol-text" id="vol-text">100</div>
-        </div>
-        <p style="color:#777;">Volume Level</p>
-        <div id="sync-msg" style="color: var(--accent); margin-top: 20px; font-size: 0.9rem;"></div>
+        <h2 id="volDisp" style="margin-top:50px; font-size:3rem;">100%</h2>
+        <p>Volume</p>
+
+        <div id="debug" style="color:#444; font-size:10px; margin-top:20px;"></div>
     </div>
 
     <div id="player-wrapper"><div id="player"></div></div>
@@ -153,196 +82,160 @@
         const socket = io();
         let player;
         let role = '';
-        let myName = '';
-        let adminCurrentTime = 0;
-        let lastAdminState = null;
-
-        function init(r) {
-            myName = document.getElementById('username').value || "Guest";
+        
+        function start(r) {
+            let name = document.getElementById('uName').value || "Guest";
             role = r;
+            
+            // Audio Context Unlock
             const ctx = new (window.AudioContext || window.webkitAudioContext)();
             const osc = ctx.createOscillator();
             const gain = ctx.createGain();
-            gain.gain.value = 0.0001;
-            osc.connect(gain);
-            gain.connect(ctx.destination);
+            gain.gain.value = 0.0001; osc.connect(gain); gain.connect(ctx.destination);
             osc.start();
 
-            document.getElementById('login-screen').classList.add('hidden');
+            document.getElementById('login').classList.add('hidden');
             if(role === 'admin') {
-                document.getElementById('admin-ui').classList.remove('hidden');
-                setupJoystick();
-                startAdminLoop();
+                document.getElementById('admin-view').classList.remove('hidden');
+                setupJoy();
+                startAdminPulse();
             } else {
-                document.getElementById('user-ui').classList.remove('hidden');
-                startUserLoop();
+                document.getElementById('user-view').classList.remove('hidden');
             }
-            socket.emit('join', { name: myName, role: role });
+            socket.emit('join', { name: name, role: role });
         }
 
+        // --- YOUTUBE ---
         function onYouTubeIframeAPIReady() {
             player = new YT.Player('player', {
                 height: '100%', width: '100%', videoId: '',
                 playerVars: { 'playsinline': 1, 'controls': 0, 'disablekb': 1 },
-                events: { 'onStateChange': onPlayerStateChange }
+                events: { 'onStateChange': (e) => {} }
             });
         }
-        function onPlayerStateChange(e) {}
 
-        // --- ADMIN ---
-        function startAdminLoop() {
+        // --- ADMIN ENGINE ---
+        function startAdminPulse() {
             setInterval(() => {
                 if(player && player.getCurrentTime) {
                     let t = player.getCurrentTime();
-                    adminCurrentTime = t;
-                    let isPlaying = (player.getPlayerState() === 1);
-                    document.getElementById('admin-time').innerText = t.toFixed(1);
-                    socket.emit('admin_heartbeat', { time: t, isPlaying: isPlaying });
+                    document.getElementById('admTime').innerText = t.toFixed(1) + "s";
+                    // Send High-Freq Pulse
+                    socket.emit('admin_signal', {
+                        time: t,
+                        isPlaying: (player.getPlayerState() === 1),
+                        timestamp: Date.now()
+                    });
                 }
-            }, 500);
+            }, 200); // 5 times per second for precision
         }
 
-        socket.on('update_user_list', (users) => {
-            if(role !== 'admin') return;
-            const list = document.getElementById('user-list');
-            list.innerHTML = "";
-
-            for(let id in users) {
-                let u = users[id];
-                if(u.role === 'admin') continue;
-
-                let diff = u.time - adminCurrentTime; // + means ahead, - means behind
-                let statusClass = 'synced';
-                let statusText = "SYNCED";
-
-                if (diff < -1.5) { statusClass = 'lagging'; statusText = "LAGGING"; }
-                else if (diff > 1.0) { statusClass = 'ahead'; statusText = "TOO FAST"; }
-
-                list.innerHTML += `
-                    <div class="user-card ${statusClass}">
-                        <div class="user-info">
-                            <span class="user-name">${u.name}</span>
-                            <span class="user-time">Diff: ${diff > 0 ? '+' : ''}${diff.toFixed(1)}s (${statusText})</span>
-                        </div>
-                        <button class="fix-btn" onclick="triggerFix('${id}')">AUTO FIX</button>
-                    </div>
-                `;
+        function load() {
+            let url = document.getElementById('yLink').value;
+            let id = "";
+            if (url.includes("v=")) id = url.split('v=')[1].split('&')[0];
+            else if (url.includes("youtu.be/")) id = url.split('youtu.be/')[1].split('?')[0];
+            else if (url.length === 11) id = url;
+            
+            if(id.length===11) {
+                socket.emit('change_track', id);
+                player.loadVideoById(id);
             }
+        }
+        function toggle() {
+            if(player.getPlayerState()===1) player.pauseVideo(); else player.playVideo();
+        }
+
+        socket.on('user_update', (users) => {
+            if(role!=='admin') return;
+            let d = document.getElementById('uList'); d.innerHTML = "";
+            for(let k in users) if(users[k].role!=='admin') 
+                d.innerHTML += `<div class="user-item">👤 ${users[k].name}</div>`;
         });
 
-        function triggerFix(targetId) {
-            if(!player) return;
-            // Admin tells user to jump to (AdminTime + 2.5s)
-            // But User's "Anti-Lead" logic will handle it if it goes too far
-            let futureTime = player.getCurrentTime() + 2.5;
-            socket.emit('admin_fix_user', { targetId: targetId, targetTime: futureTime });
-        }
-
-        function loadTrack() {
-            let url = document.getElementById('link').value;
-            let id = "";
-            if (url.indexOf("v=") > -1) id = url.split('v=')[1].split('&')[0];
-            else if (url.indexOf("youtu.be/") > -1) id = url.split('youtu.be/')[1].split('?')[0];
-            else if (url.indexOf("shorts/") > -1) id = url.split('shorts/')[1].split('?')[0];
-            else if (url.length === 11) id = url;
-            if(id.length === 11) {
-                socket.emit('change_track', id);
-                if(player) player.loadVideoById(id);
-            }
-        }
-        function togglePlay() {
-            if(player.getPlayerState() === 1) player.pauseVideo(); else player.playVideo();
-        }
-
-        // --- USER ---
-        function startUserLoop() {
-            setInterval(() => {
-                if(player && player.getCurrentTime) {
-                    socket.emit('report_time', player.getCurrentTime());
-                }
-            }, 1000);
-        }
-
-        socket.on('load_track', (id) => { if(player) player.loadVideoById(id); });
-
-        // 🔥 CRITICAL: ANTI-LEAD LOGIC 🔥
+        // --- USER ENGINE (THE SPEED LOGIC) ---
+        socket.on('load_track', (id) => player.loadVideoById(id));
+        
         socket.on('sync_pulse', (data) => {
-            if(role !== 'user') return;
-            lastAdminState = data;
+            if(role !== 'user' || !player) return;
+
+            // 1. Calculate precise Admin time considering Network Latency
+            let now = Date.now();
+            let networkLag = (now - data.timestamp) / 1000;
+            let targetTime = data.time + networkLag; 
 
             let myTime = player.getCurrentTime();
-            let adminTime = data.time;
-            let diff = myTime - adminTime; // Positive = I am ahead
+            let drift = targetTime - myTime; // Positive = I am lagging
 
-            // 1. CHECK IF AHEAD (Anti-Lead)
-            if (diff > 1.5) {
-                // If I am 1.5s ahead of Admin -> PAUSE & WAIT
-                document.getElementById('status-text').innerText = "TOO FAST";
-                document.getElementById('status-text').style.color = "var(--warning)";
-                document.getElementById('sync-msg').innerText = `Waiting for DJ... (${diff.toFixed(1)}s ahead)`;
-                
-                if(player.getPlayerState() === 1) player.pauseVideo();
-                return; // Stop here, don't do play logic
-            }
+            document.getElementById('debug').innerText = `Drift: ${drift.toFixed(3)}s | Target: ${targetTime.toFixed(1)}`;
 
-            // 2. CHECK IF BEHIND (Normal Play Logic)
+            // 2. STATE SYNC
             if(data.isPlaying) {
-                document.getElementById('status-text').innerText = "PLAYING";
-                document.getElementById('status-text').style.color = "var(--accent)";
-                document.getElementById('sync-msg').innerText = "";
-                
-                // Only play if stopped
-                if(player.getPlayerState() !== 1 && player.getPlayerState() !== 3) {
-                    player.playVideo();
-                }
+                document.getElementById('uStatus').innerText = "PLAYING";
+                document.getElementById('uStatus').style.color = "var(--main)";
+                if(player.getPlayerState() !== 1 && player.getPlayerState() !== 3) player.playVideo();
             } else {
-                document.getElementById('status-text').innerText = "PAUSED";
-                document.getElementById('status-text').style.color = "#777";
+                document.getElementById('uStatus').innerText = "PAUSED";
+                document.getElementById('uStatus').style.color = "#777";
                 if(player.getPlayerState() === 1) player.pauseVideo();
+                // If paused, hard sync once
+                if(Math.abs(drift) > 0.5) player.seekTo(targetTime, true);
+                return; // Stop speed logic when paused
+            }
+
+            // 3. SPEED SYNC LOGIC (The Magic)
+            
+            // Case A: HUGE LAG (> 2s) -> Hard Jump
+            if(Math.abs(drift) > 2.0) {
+                document.getElementById('uMode').innerText = "Syncing (Hard Jump)...";
+                player.seekTo(targetTime + 0.1, true); // +0.1 for safety
+            } 
+            // Case B: SMALL LAG (0.1s to 2.0s) -> Speed Up (Catch up)
+            else if (drift > 0.15) {
+                document.getElementById('uMode').innerText = "Status: Catching Up ⏩";
+                player.setPlaybackRate(1.15); // 15% Faster
+            } 
+            // Case C: AHEAD (-0.1s to -2.0s) -> Slow Down (Wait)
+            else if (drift < -0.15) {
+                document.getElementById('uMode').innerText = "Status: Slowing Down ⏪";
+                player.setPlaybackRate(0.85); // 15% Slower
+            } 
+            // Case D: PERFECT (< 0.15s) -> Normal Speed
+            else {
+                document.getElementById('uMode').innerText = "Status: Perfect Synced 👌";
+                player.setPlaybackRate(1.0);
             }
         });
 
-        socket.on('force_sync_execute', (targetTime) => {
+        // Spatial Audio
+        socket.on('vol_adjust', (d) => {
             if(role !== 'user') return;
-            document.getElementById('sync-msg').innerText = `SYNCING...`;
-            
-            // Allow jump
-            player.seekTo(targetTime, true);
-            player.playVideo();
+            let dist = Math.sqrt(d.x*d.x + d.y*d.y);
+            let vol = Math.max(0, 100 - (dist*50));
+            player.setVolume(vol);
+            document.getElementById('volDisp').innerText = Math.floor(vol)+"%";
         });
 
-        socket.on('adjust_volume', (coords) => {
-            if(role !== 'user') return;
-            let dist = Math.sqrt(coords.x*coords.x + coords.y*coords.y);
-            let vol = Math.max(0, 100 - (dist * 50));
-            if(player) player.setVolume(vol);
-            document.getElementById('vol-text').innerText = Math.floor(vol);
-            document.getElementById('vol-text').style.opacity = (vol/100) + 0.3;
-        });
-
-        function setupJoystick() {
-            const pad = document.getElementById('js-base');
-            const knob = document.getElementById('js-knob');
-            let dragging = false;
+        function setupJoy() {
+            const pad=document.getElementById('joyBase'), knob=document.getElementById('joyKnob');
+            let drag=false;
             function move(e) {
                 e.preventDefault();
-                let clientX = e.touches ? e.touches[0].clientX : e.clientX;
-                let clientY = e.touches ? e.touches[0].clientY : e.clientY;
-                let rect = pad.getBoundingClientRect();
-                let x = clientX - (rect.left + rect.width/2);
-                let y = clientY - (rect.top + rect.height/2);
-                let radius = rect.width/2 - 25;
-                let dist = Math.sqrt(x*x + y*y);
-                if(dist > radius) { x = (x/dist)*radius; y = (y/dist)*radius; }
-                knob.style.transform = `translate(-50%, -50%) translate(${x}px, ${y}px)`;
-                socket.emit('admin_joystick', { x: x/radius, y: y/radius });
+                let cx = e.touches?e.touches[0].clientX:e.clientX;
+                let cy = e.touches?e.touches[0].clientY:e.clientY;
+                let r = pad.getBoundingClientRect();
+                let x = cx-(r.left+100), y = cy-(r.top+100);
+                let dist = Math.sqrt(x*x+y*y);
+                if(dist>70){ x=(x/dist)*70; y=(y/dist)*70; }
+                knob.style.transform=`translate(-50%,-50%) translate(${x}px,${y}px)`;
+                socket.emit('admin_joystick',{x:x/70, y:y/70});
             }
-            knob.addEventListener('mousedown', () => dragging = true);
-            document.addEventListener('mouseup', () => dragging = false);
-            document.addEventListener('mousemove', (e) => { if(dragging) move(e); });
-            knob.addEventListener('touchstart', () => dragging = true);
-            document.addEventListener('touchend', () => dragging = false);
-            document.addEventListener('touchmove', (e) => { if(dragging) move(e); });
+            knob.addEventListener('mousedown',()=>drag=true);
+            document.addEventListener('mouseup',()=>drag=false);
+            document.addEventListener('mousemove',(e)=>{if(drag)move(e)});
+            knob.addEventListener('touchstart',()=>drag=true);
+            document.addEventListener('touchend',()=>drag=false);
+            document.addEventListener('touchmove',(e)=>{if(drag)move(e)});
         }
     </script>
 </body>
