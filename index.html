@@ -1,313 +1,439 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Live Monitor Sync</title>
+    <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Studio Sync Pro</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
     <style>
-        body { background-color: #050505; color: white; font-family: monospace; text-align: center; margin: 0; }
-        
-        /* LOGIN */
-        #login-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 99; display: flex; flex-direction: column; justify-content: center; align-items: center; }
-        input.name-input { padding: 15px; width: 70%; border-radius: 50px; border: 1px solid #333; background: #111; color: cyan; text-align: center; font-size: 18px; margin-bottom: 20px; }
-        .role-btn { padding: 15px 30px; margin: 10px; font-size: 18px; border-radius: 30px; border: none; cursor: pointer; width: 80%; font-weight: bold; }
-        
-        /* ADMIN DASHBOARD */
-        #admin-panel { display: none; padding-bottom: 50px; }
-        .monitor-row { display: flex; justify-content: space-between; padding: 10px; border-bottom: 1px solid #333; background: #111; align-items: center; }
-        .time-badge { padding: 5px 10px; border-radius: 5px; font-size: 12px; font-weight: bold; min-width: 60px; text-align: center; }
-        .bg-green { background: #28a745; color: white; }
-        .bg-red { background: #dc3545; color: white; }
-        
-        /* JOYSTICK */
-        #joystick-container {
-            width: 200px; height: 200px; background: radial-gradient(circle, #222 0%, #000 100%);
-            border: 2px solid #444; border-radius: 50%; margin: 20px auto;
-            position: relative; touch-action: none;
-        }
-        #joystick-knob {
-            width: 50px; height: 50px; background: rgba(0, 255, 255, 0.8);
-            border-radius: 50%; position: absolute; top: 50%; left: 50%;
-            transform: translate(-50%, -50%);
+        :root {
+            --bg: #050505;
+            --card: #121212;
+            --accent: #00f2ea; /* Cyan */
+            --accent-glow: rgba(0, 242, 234, 0.3);
+            --danger: #ff0050;
+            --text: #ffffff;
+            --glass: rgba(255, 255, 255, 0.05);
         }
 
-        /* USER VIEW */
-        #user-view { display: none; padding-top: 50px; }
-        #sync-status { font-size: 20px; margin: 20px; color: yellow; }
+        body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-serif; margin: 0; overflow: hidden; }
         
-        /* HIDDEN PLAYER */
-        #player-box { position: relative; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+        /* UTILS */
+        .hidden { display: none !important; }
+        .flex { display: flex; align-items: center; justify-content: center; }
+        .glass-panel {
+            background: var(--glass); backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 16px; padding: 20px;
+        }
+
+        /* 1. LOGIN SCREEN */
+        #login-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: radial-gradient(circle at center, #1a1a1a 0%, #000 100%);
+            z-index: 999; flex-direction: column;
+        }
+        h1 { font-weight: 800; font-size: 2.5rem; letter-spacing: -1px; margin-bottom: 5px; }
+        h1 span { color: var(--accent); }
+        
+        input {
+            background: var(--card); border: 1px solid #333; color: white;
+            padding: 15px; width: 250px; border-radius: 8px; font-size: 1rem;
+            text-align: center; margin: 20px 0; outline: none; transition: 0.3s;
+        }
+        input:focus { border-color: var(--accent); box-shadow: 0 0 15px var(--accent-glow); }
+
+        .btn {
+            padding: 15px 40px; border-radius: 50px; border: none; font-weight: 700;
+            cursor: pointer; font-size: 1rem; text-transform: uppercase; transition: 0.2s;
+            margin: 10px; width: 200px;
+        }
+        .btn-primary { background: var(--accent); color: black; box-shadow: 0 0 20px var(--accent-glow); }
+        .btn-secondary { background: #333; color: white; }
+        .btn:active { transform: scale(0.95); }
+
+        /* 2. ADMIN DASHBOARD */
+        #admin-view { height: 100vh; display: grid; grid-template-rows: auto 1fr; }
+        .top-bar { padding: 15px; display: flex; gap: 10px; border-bottom: 1px solid #222; }
+        .main-area { display: grid; grid-template-columns: 300px 1fr; height: 100%; overflow: hidden; }
+        
+        /* Sidebar (User List) */
+        .sidebar { background: #0a0a0a; border-right: 1px solid #222; overflow-y: auto; padding: 10px; }
+        .user-row {
+            background: #111; padding: 12px; border-radius: 8px; margin-bottom: 8px;
+            border-left: 3px solid #333; transition: 0.3s;
+        }
+        .user-row.active { border-left-color: var(--accent); background: #161616; }
+        .user-row.error { border-left-color: var(--danger); }
+        .row-header { display: flex; justify-content: space-between; font-size: 0.9rem; font-weight: 600; }
+        .row-time { font-family: monospace; font-size: 0.8rem; color: #888; }
+        .row-controls { margin-top: 8px; display: flex; gap: 5px; }
+        .mini-btn { padding: 5px 10px; font-size: 0.7rem; border-radius: 4px; border: none; cursor: pointer; color: white; }
+        
+        /* Center Stage */
+        .stage { padding: 20px; display: flex; flex-direction: column; align-items: center; position: relative; }
+        
+        /* 3D Joystick */
+        .joystick-pad {
+            width: 220px; height: 220px; border-radius: 50%;
+            background: radial-gradient(circle, #222, #000);
+            border: 2px solid #333; position: relative; margin: 20px;
+            box-shadow: inset 0 0 20px rgba(0,0,0,0.8);
+            touch-action: none;
+        }
+        .knob {
+            width: 50px; height: 50px; background: var(--accent); border-radius: 50%;
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            box-shadow: 0 0 15px var(--accent); cursor: grab;
+        }
+        .pad-label { position: absolute; font-size: 0.7rem; color: #555; pointer-events: none; }
+
+        /* 3. USER VIEW */
+        #user-view { height: 100vh; flex-direction: column; text-align: center; padding: 20px; }
+        .status-big { font-size: 1.5rem; color: #888; margin-top: 20px; }
+        .pos-card { 
+            font-size: 2rem; font-weight: 800; color: var(--accent); 
+            border: 2px dashed #333; padding: 30px; border-radius: 20px; margin: 30px 0;
+            text-shadow: 0 0 20px var(--accent-glow);
+        }
+        .vol-bar-container { width: 300px; height: 10px; background: #222; border-radius: 5px; overflow: hidden; margin: 20px auto; }
+        .vol-bar { height: 100%; background: var(--accent); width: 100%; transition: width 0.2s; }
+
+        /* COUNTDOWN OVERLAY */
+        #countdown-layer {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.8); z-index: 2000;
+            display: flex; justify-content: center; align-items: center;
+            font-size: 8rem; font-weight: 900; color: white;
+            pointer-events: none;
+        }
+
+        /* Hidden Player */
+        #player-wrapper { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; top: -1000px;}
+        
+        /* Responsive */
+        @media (max-width: 768px) {
+            .main-area { grid-template-columns: 1fr; }
+            .sidebar { display: none; } /* Hide sidebar on mobile admin */
+        }
     </style>
 </head>
 <body>
 
-    <div id="login-screen">
-        <h1 style="color:cyan;">SYNC MONITOR</h1>
-        <input type="text" id="username" class="name-input" placeholder="Enter Name">
-        <button class="role-btn" style="background:#ff0055; color:white;" onclick="joinAs('admin')">🎛️ ADMIN</button>
-        <button class="role-btn" style="background:#007bff; color:white;" onclick="joinAs('user')">🔊 USER</button>
+    <div id="login-overlay" class="flex">
+        <h1>STUDIO <span>SYNC</span></h1>
+        <p style="color:#777;">V4.0 Ultimate Edition</p>
+        <input type="text" id="username" placeholder="Device Name (e.g. Speaker 1)">
+        
+        <button class="btn btn-primary" onclick="initApp('admin')">Start as DJ</button>
+        <button class="btn btn-secondary" onclick="initApp('user')">Join as Speaker</button>
     </div>
 
-    <div id="admin-panel">
-        <div style="padding:10px; background:#222;">
-            <input type="text" id="urlInput" placeholder="Song Link..." style="width:60%; padding:5px;">
-            <button onclick="changeVideo()">Play</button>
-            <div style="margin-top:5px; color:cyan;">ADMIN TIME: <span id="admin-time-display">0.0</span>s</div>
+    <div id="admin-view" class="hidden">
+        <div class="top-bar">
+            <input type="text" id="trackUrl" placeholder="Paste YouTube Link..." style="width: 100%; margin:0;">
+            <button class="btn btn-primary" style="width:auto; padding: 10px 20px; margin:0;" onclick="loadTrack()">LOAD</button>
+            <div style="color:white; font-family:monospace; padding:10px; background:#111; border-radius:5px; min-width:80px;" id="admin-timer">00:00</div>
         </div>
+        
+        <div class="main-area">
+            <div class="sidebar" id="user-list">
+                </div>
 
-        <div id="joystick-container">
-            <div id="joystick-knob"></div>
+            <div class="stage">
+                <div class="glass-panel">
+                    <h3 style="margin:0 0 10px 0; color:#555;">SPATIAL AUDIO CONTROLLER</h3>
+                    <div class="joystick-pad" id="joystick">
+                        <div class="pad-label" style="top:10px; left:50%; transform:translate(-50%)">FRONT</div>
+                        <div class="pad-label" style="bottom:10px; left:50%; transform:translate(-50%)">REAR</div>
+                        <div class="pad-label" style="left:10px; top:50%; transform:translateY(-50%)">L</div>
+                        <div class="pad-label" style="right:10px; top:50%; transform:translateY(-50%)">R</div>
+                        <div class="knob" id="knob"></div>
+                    </div>
+                </div>
+
+                <div style="margin-top: 20px; display: flex; gap: 20px;">
+                    <button class="btn btn-primary" onclick="playMusic()">▶ PLAY (SYNC)</button>
+                    <button class="btn btn-secondary" onclick="pauseMusic()">⏸ PAUSE</button>
+                </div>
+            </div>
         </div>
-
-        <h3>User Monitor:</h3>
-        <div id="user-list"></div>
     </div>
 
-    <div id="user-view">
-        <h1>CONNECTED</h1>
-        <div id="sync-status">Waiting for Admin...</div>
-        <h2 id="vol-display">Vol: 100%</h2>
-        <div id="pos-msg">Pos: CENTER</div>
+    <div id="user-view" class="hidden flex">
+        <h2 style="color:#555; letter-spacing: 2px;">CONNECTED TO STUDIO</h2>
+        
+        <div class="pos-card" id="pos-display">CENTER</div>
+        <p style="color:#777; margin-top:-20px;">Speaker Position</p>
+
+        <div class="glass-panel" style="width: 80%; max-width: 400px; margin-top: 20px;">
+            <div class="flex" style="justify-content: space-between; width:100%;">
+                <span>Volume</span>
+                <span id="vol-text">100%</span>
+            </div>
+            <div class="vol-bar-container">
+                <div class="vol-bar" id="vol-visual"></div>
+            </div>
+            <div class="status-big" id="status-text">Waiting for DJ...</div>
+        </div>
+        
+        <button onclick="forceResync()" style="margin-top:30px; background:none; border:1px solid #333; color:#555; padding:10px; border-radius:5px;">
+            Audio Stopped? Tap Here
+        </button>
     </div>
 
-    <div id="player-box"><div id="player"></div></div>
+    <div id="countdown-layer" class="hidden"></div>
+    <div id="player-wrapper"><div id="player"></div></div>
 
     <script src="/socket.io/socket.io.js"></script>
     <script src="https://www.youtube.com/iframe_api"></script>
-    
     <script>
-        var socket = io();
-        var player;
-        var myRole = '';
-        var latestState = {};
-        var adminCurrentTime = 0; 
-        
-        // --- LOGIN ---
-        function joinAs(role) {
-            var name = document.getElementById('username').value || "User " + Math.floor(Math.random()*100);
-            myRole = role;
-            document.getElementById('login-screen').style.display = 'none';
+        const socket = io();
+        let player;
+        let role = '';
+        let myName = '';
+        let adminTimeInterval;
 
-            if(role === 'admin') {
-                document.getElementById('admin-panel').style.display = 'block';
-                setupJoystick();
-                // Admin player needs to be visible/active for timing
-                // We keep it hidden but create it
-            } else {
-                document.getElementById('user-view').style.display = 'block';
-                startAudioUnlock();
-                socket.emit('join_user', name);
-                
-                // User Time Reporting Loop (Every 1s)
-                setInterval(() => {
-                    if(player && player.getCurrentTime) {
-                        socket.emit('report_time', player.getCurrentTime());
-                    }
-                }, 1000);
-            }
-        }
+        // --- INIT ---
+        function initApp(selectedRole) {
+            const name = document.getElementById('username').value;
+            if(!name) { alert("Enter a name!"); return; }
+            
+            myName = name;
+            role = selectedRole;
 
-        function startAudioUnlock() {
-            var ctx = new (window.AudioContext || window.webkitAudioContext)();
-            var osc = ctx.createOscillator();
-            var gain = ctx.createGain();
-            gain.gain.value = 0.0001; 
+            // Unlock Audio Engine (Crucial for Mobile)
+            const ctx = new (window.AudioContext || window.webkitAudioContext)();
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            gain.gain.value = 0.0001; // Silent
             osc.connect(gain);
             gain.connect(ctx.destination);
             osc.start();
+            osc.stop(0.1);
+
+            document.getElementById('login-overlay').classList.add('hidden');
+            
+            if(role === 'admin') {
+                document.getElementById('admin-view').classList.remove('hidden');
+                setupJoystick();
+            } else {
+                document.getElementById('user-view').classList.remove('hidden');
+            }
+
+            // Init Socket
+            socket.emit('join_studio', { name: myName, role: role });
         }
 
         // --- YOUTUBE API ---
         function onYouTubeIframeAPIReady() {
             player = new YT.Player('player', {
                 height: '100%', width: '100%', videoId: '',
-                playerVars: { 'playsinline': 1, 'controls': 0 },
+                playerVars: { 'playsinline': 1, 'controls': 0, 'rel':0 },
                 events: { 'onStateChange': onPlayerStateChange }
             });
         }
 
-        // --- ADMIN LOGIC ---
-        function onPlayerStateChange(event) {
-            if (myRole !== 'admin') return;
-            
-            var state = {
-                isPlaying: (event.data == YT.PlayerState.PLAYING),
-                videoTime: player.getCurrentTime()
-            };
-            socket.emit('admin_update', state);
-            
-            // Show Admin Time Locally
-            if(event.data == YT.PlayerState.PLAYING) {
-                // Update display loop
-                if(!window.adminTimer) {
-                    window.adminTimer = setInterval(() => {
-                        adminCurrentTime = player.getCurrentTime();
-                        document.getElementById('admin-time-display').innerText = adminCurrentTime.toFixed(1);
+        // --- ADMIN CONTROLS ---
+        function loadTrack() {
+            let url = document.getElementById('trackUrl').value;
+            let id = url.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/);
+            if(id) socket.emit('admin_change_track', id[1]);
+        }
+
+        function playMusic() {
+            if(!player) return;
+            socket.emit('admin_play_request', player.getCurrentTime());
+        }
+        function pauseMusic() {
+            socket.emit('admin_pause', player.getCurrentTime());
+        }
+
+        function onPlayerStateChange(e) {
+            // Admin Monitor Update
+            if(role === 'admin' && e.data === YT.PlayerState.PLAYING) {
+                if(!adminTimeInterval) {
+                    adminTimeInterval = setInterval(() => {
+                        let t = player.getCurrentTime();
+                        document.getElementById('admin-timer').innerText = formatTime(t);
                     }, 500);
                 }
             } else {
-                clearInterval(window.adminTimer);
-                window.adminTimer = null;
-                adminCurrentTime = player.getCurrentTime();
-                document.getElementById('admin-time-display').innerText = adminCurrentTime.toFixed(1);
+                clearInterval(adminTimeInterval);
+                adminTimeInterval = null;
             }
         }
 
-        function changeVideo() {
-            var url = document.getElementById('urlInput').value;
-            var id = url.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/);
-            if(id) socket.emit('admin_change_video', id[1]);
+        function formatTime(s) {
+            return (s-(s%=60))/60+(9<s?':':':0')+Math.floor(s);
         }
 
-        function forceUserSync(targetId) {
-            socket.emit('admin_force_sync_user', targetId);
-        }
+        // --- CLIENT LOGIC (THE SYNC ENGINE) ---
         
-        function assignPos(id, val) {
-            socket.emit('admin_assign_pos', { targetId: id, posKey: val });
-        }
+        socket.on('load_track', (id) => { if(player) player.loadVideoById(id); });
 
-        // --- MONITORING UI UPDATE ---
-        socket.on('monitor_update', (data) => {
-            if(myRole !== 'admin') return;
-            
-            // Find the time badge for this user and update it
-            var badge = document.getElementById('time-' + data.id);
-            if(badge) {
-                badge.innerText = data.time.toFixed(1) + "s";
+        socket.on('execute_play', (data) => {
+            // 1. Calculate wait time
+            let now = Date.now();
+            let waitMs = data.launchAt - now;
+
+            // 2. Visual Countdown
+            if(waitMs > 0) {
+                showCountdown(waitMs);
                 
-                // Compare with Admin Time
-                var diff = Math.abs(adminCurrentTime - data.time);
-                if(diff > 0.5) { // If lag > 0.5s
-                    badge.className = "time-badge bg-red";
-                } else {
-                    badge.className = "time-badge bg-green";
-                }
-            }
-        });
-
-        socket.on('user_list_update', (users) => {
-            if(myRole !== 'admin') return;
-            var listDiv = document.getElementById('user-list');
-            listDiv.innerHTML = ""; 
-
-            for(let id in users) {
-                if(id === socket.id) continue; // Don't show admin self
-                let u = users[id];
+                // 3. Seek and Hold
+                player.seekTo(data.seekTo, true);
+                player.pauseVideo();
                 
-                listDiv.innerHTML += `
-                <div class="monitor-row">
-                    <div style="text-align:left;">
-                        <div style="font-weight:bold; color:cyan;">${u.name}</div>
-                        <select onchange="assignPos('${id}', this.value)" style="font-size:10px; background:#333; color:white; border:none;">
-                            <option value="c">Center</option>
-                            <option value="fl">Front-L</option>
-                            <option value="fr">Front-R</option>
-                            <option value="rl">Rear-L</option>
-                            <option value="rr">Rear-R</option>
-                        </select>
-                    </div>
-                    
-                    <div id="time-${id}" class="time-badge bg-green">0.0s</div>
-                    
-                    <button onclick="forceUserSync('${id}')" style="background:#ff0055; color:white; border:none; padding:5px; border-radius:3px;">FIX</button>
-                </div>`;
-            }
-        });
+                if(role === 'user') document.getElementById('status-text').innerText = "Syncing...";
 
-
-        // --- USER LOGIC & SYNC ---
-
-        socket.on('server_update', (state) => {
-            latestState = state;
-            
-            if(myRole === 'user') {
-                if(state.isPlaying) {
-                    document.getElementById("sync-status").innerText = "Playing...";
-                    // Start Video if stopped
-                    if(player.getPlayerState() !== 1 && player.getPlayerState() !== 3) {
-                         startBufferedSync();
-                    }
-                } else {
-                    document.getElementById("sync-status").innerText = "Paused by Admin";
-                    // Immediate Pause Sync
-                    if(player && player.seekTo) {
-                        player.seekTo(state.lastVideoTime, true);
-                        player.pauseVideo();
-                    }
-                }
-            }
-        });
-
-        socket.on('trigger_sync', () => {
-            if(myRole === 'user') startBufferedSync();
-        });
-
-        socket.on('force_change_video', (id) => { if(player) player.loadVideoById(id); });
-        socket.on('pos_msg', (msg) => { document.getElementById('pos-msg').innerText = msg; });
-        socket.on('set_volume', (vol) => { 
-            if(player) player.setVolume(vol); 
-            document.getElementById('vol-display').innerText = "Vol: " + vol + "%";
-        });
-
-        // === THE MAGIC 2-SECOND BUFFER SYNC ===
-        function startBufferedSync() {
-            if(!player || !latestState) return;
-
-            // 1. Calculate Admin's projected time
-            var timePassed = (Date.now() - latestState.lastServerTime) / 1000;
-            var adminNow = latestState.lastVideoTime + timePassed;
-
-            // 2. Set Target = AdminNow + 2 Seconds Buffer
-            var targetTime = adminNow + 2.0; 
-
-            document.getElementById("sync-status").innerText = "Syncing... (Wait 2s)";
-
-            // 3. Seek to Future
-            player.seekTo(targetTime, true);
-            player.pauseVideo(); // Buffer korar jonno pause
-
-            // 4. Wait exactly 2 seconds then play
-            setTimeout(() => {
+                // 4. Launch
+                setTimeout(() => {
+                    player.playVideo();
+                    if(role === 'user') document.getElementById('status-text').innerText = "Playing Live";
+                }, waitMs);
+            } else {
+                // If late, jump ahead
+                player.seekTo(data.seekTo + Math.abs(waitMs/1000), true);
                 player.playVideo();
-                document.getElementById("sync-status").innerText = "Synced & Playing!";
-            }, 2000); // 2000ms delay
-        }
-        
-        // --- JOYSTICK LOGIC (Same as before) ---
-        function setupJoystick() {
-            const container = document.getElementById('joystick-container');
-            const knob = document.getElementById('joystick-knob');
-            let isDragging = false;
-            const radius = 100; // Half of 200px width
-
-            function handleMove(clientX, clientY) {
-                const rect = container.getBoundingClientRect();
-                const centerX = rect.left + radius;
-                const centerY = rect.top + radius;
-                let deltaX = clientX - centerX;
-                let deltaY = clientY - centerY; 
-                const dist = Math.sqrt(deltaX*deltaX + deltaY*deltaY);
-                if(dist > radius - 25) { // 25 is knob radius
-                    const angle = Math.atan2(deltaY, deltaX);
-                    deltaX = Math.cos(angle) * (radius - 25);
-                    deltaY = Math.sin(angle) * (radius - 25);
-                }
-                knob.style.transform = `translate(${deltaX - 25}px, ${deltaY - 25}px)`;
-                let normX = deltaX / radius; 
-                let normY = -(deltaY / radius); 
-                socket.emit('joystick_move', { x: normX, y: normY });
             }
+        });
 
-            knob.addEventListener('mousedown', () => isDragging = true);
-            document.addEventListener('mouseup', () => isDragging = false);
-            document.addEventListener('mousemove', (e) => { if(isDragging) handleMove(e.clientX, e.clientY); });
-            knob.addEventListener('touchstart', (e) => { isDragging = true; e.preventDefault(); });
-            document.addEventListener('touchend', () => isDragging = false);
-            document.addEventListener('touchmove', (e) => {
-                if(isDragging) handleMove(e.touches[0].clientX, e.touches[0].clientY);
-            });
+        socket.on('execute_pause', (data) => {
+            player.seekTo(data.seekTo, true);
+            player.pauseVideo();
+            if(role === 'user') document.getElementById('status-text').innerText = "Paused";
+        });
+        
+        socket.on('force_resync', () => { forceResync(); });
+
+        function forceResync() {
+            // Simple logic: Just report to admin, or reload
+            // Ideally re-requests state. For now, simple play attempt.
+            if(player) player.playVideo();
         }
 
+        function showCountdown(ms) {
+            const el = document.getElementById('countdown-layer');
+            el.classList.remove('hidden');
+            let sec = Math.ceil(ms/1000);
+            el.innerText = sec;
+            
+            let i = setInterval(() => {
+                sec--;
+                el.innerText = sec;
+                if(sec <= 0) {
+                    clearInterval(i);
+                    el.classList.add('hidden');
+                }
+            }, 1000);
+        }
+
+        // --- SPATIAL AUDIO ---
+        socket.on('set_volume', (vol) => {
+            if(player) player.setVolume(vol);
+            document.getElementById('vol-text').innerText = vol + "%";
+            document.getElementById('vol-visual').style.width = vol + "%";
+            // Reduce brightness if volume low
+            document.getElementById('pos-display').style.opacity = (vol/100) + 0.2;
+        });
+
+        socket.on('update_pos_display', (label) => {
+            document.getElementById('pos-display').innerText = label;
+        });
+
+        // --- MONITORING (USER LIST) ---
+        socket.on('update_user_list', (users) => {
+            if(role !== 'admin') return;
+            const list = document.getElementById('user-list');
+            list.innerHTML = "";
+            
+            for(let id in users) {
+                if(users[id].role === 'admin') continue;
+                let u = users[id];
+                list.innerHTML += `
+                    <div class="user-row" id="row-${id}">
+                        <div class="row-header">
+                            <span>${u.name}</span>
+                            <span style="color:${u.pos.label === 'Center' ? '#555' : 'var(--accent)'}">${u.pos.label}</span>
+                        </div>
+                        <div class="row-controls">
+                            <button class="mini-btn" style="background:#333" onclick="setPos('${id}','fl')">FL</button>
+                            <button class="mini-btn" style="background:#333" onclick="setPos('${id}','fr')">FR</button>
+                            <button class="mini-btn" style="background:#333" onclick="setPos('${id}','rl')">RL</button>
+                            <button class="mini-btn" style="background:#333" onclick="setPos('${id}','rr')">RR</button>
+                            <button class="mini-btn" style="background:var(--danger); margin-left:auto;" onclick="fixSync('${id}')">FIX</button>
+                        </div>
+                        <div class="row-time" id="time-${id}">Time: --</div>
+                    </div>
+                `;
+            }
+        });
+
+        // Report Status Loop
+        setInterval(() => {
+            if(role === 'user' && player && player.getCurrentTime) {
+                socket.emit('report_status', { 
+                    time: player.getCurrentTime(),
+                    status: player.getPlayerState() 
+                });
+            }
+        }, 1000);
+
+        socket.on('monitor_update', (d) => {
+            if(role !== 'admin') return;
+            let el = document.getElementById('time-'+d.id);
+            if(el) {
+                let diff = Math.abs(player.getCurrentTime() - d.data.time);
+                el.innerText = `Time: ${d.data.time.toFixed(1)}s (Lag: ${diff.toFixed(1)})`;
+                let row = document.getElementById('row-'+d.id);
+                if(diff > 0.5) row.classList.add('error');
+                else row.classList.remove('error');
+            }
+        });
+
+        function setPos(id, k) { socket.emit('admin_set_pos', {targetId: id, posKey: k}); }
+        function fixSync(id) { socket.emit('admin_fix_sync', id); }
+
+        // --- JOYSTICK LOGIC ---
+        function setupJoystick() {
+            const pad = document.getElementById('joystick');
+            const knob = document.getElementById('knob');
+            let dragging = false;
+            
+            function move(e) {
+                e.preventDefault();
+                let clientX = e.touches ? e.touches[0].clientX : e.clientX;
+                let clientY = e.touches ? e.touches[0].clientY : e.clientY;
+                
+                let rect = pad.getBoundingClientRect();
+                let centerX = rect.left + rect.width/2;
+                let centerY = rect.top + rect.height/2;
+                let x = clientX - centerX;
+                let y = clientY - centerY;
+                
+                let dist = Math.sqrt(x*x + y*y);
+                let radius = rect.width/2 - 25;
+                
+                if(dist > radius) {
+                    x = (x/dist)*radius;
+                    y = (y/dist)*radius;
+                }
+                
+                knob.style.transform = `translate(calc(-50% + ${x}px), calc(-50% + ${y}px))`;
+                
+                // Send to Server (-1 to 1)
+                socket.emit('admin_joystick', { x: x/radius, y: -(y/radius) });
+            }
+            
+            knob.addEventListener('mousedown', () => dragging = true);
+            document.addEventListener('mouseup', () => dragging = false);
+            document.addEventListener('mousemove', (e) => { if(dragging) move(e); });
+            
+            knob.addEventListener('touchstart', () => dragging = true);
+            document.addEventListener('touchend', () => dragging = false);
+            document.addEventListener('touchmove', (e) => { if(dragging) move(e); });
+        }
     </script>
 </body>
 </html>
