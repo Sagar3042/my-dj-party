@@ -9,7 +9,6 @@ app.get('/', (req, res) => {
   res.sendFile(__dirname + '/index.html');
 });
 
-// --- CHANGE HERE: Default video is NULL (Faka) ---
 let currentVideoID = null; 
 let users = {}; 
 
@@ -20,20 +19,28 @@ io.on('connection', (socket) => {
         id: socket.id, 
         name: name, 
         offset: 0, 
-        volume: 100 
+        volume: 100,
+        lastKnownTime: 0 // ইউজারের বর্তমান টাইম স্টোর করার জন্য
     };
     
-    io.emit('update_user_list', Object.values(users));
-    
-    // Only send video ID if one is currently playing
+    // ভিডিও চললে সাথে সাথে আইডি দাও
     if (currentVideoID) {
         socket.emit('change_video', currentVideoID);
     }
+    // আপডেট লিস্ট পাঠাও
+    io.emit('update_user_list', Object.values(users));
   });
 
   socket.on('disconnect', () => {
     delete users[socket.id];
     io.emit('update_user_list', Object.values(users));
+  });
+
+  // --- NEW: ইউজার তার নিজের টাইম রিপোর্ট করবে ---
+  socket.on('report_user_time', (time) => {
+    if(users[socket.id]) {
+        users[socket.id].lastKnownTime = time;
+    }
   });
 
   socket.on('video_control', (msg) => {
@@ -58,6 +65,12 @@ io.on('connection', (socket) => {
     }
   });
 });
+
+// --- NEW: প্রতি ১ সেকেন্ডে অ্যাডমিনকে সব ইউজারের লাইভ স্ট্যাটাস পাঠানো ---
+setInterval(() => {
+    // এই ব্রডকাস্টটি শুধুমাত্র ইউজার লিস্ট রিফ্রেশ করার জন্য
+    io.emit('update_user_list', Object.values(users));
+}, 1000);
 
 server.listen(3000, () => {
   console.log('Server running on port 3000');

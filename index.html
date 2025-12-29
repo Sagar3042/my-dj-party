@@ -6,10 +6,8 @@
     <style>
         body { background-color: #0f0f0f; color: #eee; font-family: 'Segoe UI', sans-serif; margin: 0; padding: 20px; text-align: center; }
         
-        /* Video Player Area */
         #player-wrapper { position: relative; max-width: 800px; margin: 0 auto; border: 2px solid #333; box-shadow: 0 0 20px rgba(0,0,0,0.5); background: black; aspect-ratio: 16/9; }
         
-        /* Waiting Screen */
         #waiting-screen {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             background: #000; display: flex; flex-direction: column;
@@ -20,7 +18,6 @@
 
         .video-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: transparent; z-index: 10; display: none; }
         
-        /* Controls */
         .controls { margin-top: 15px; background: #1e1e1e; padding: 15px; border-radius: 8px; display: inline-block; }
         input[type="text"] { padding: 8px; width: 250px; background: #333; border: 1px solid #444; color: white; border-radius: 4px; }
         button { padding: 8px 15px; cursor: pointer; background: #007bff; color: white; border: none; border-radius: 4px; font-weight: bold; }
@@ -30,7 +27,7 @@
         /* --- ADMIN PANEL STYLES --- */
         #admin-panel { display: none; margin-top: 30px; border-top: 2px solid #444; padding-top: 20px; text-align: left; max-width: 900px; margin-left: auto; margin-right: auto; }
         
-        /* MASTER CONTROLS (BIG BUTTONS) */
+        /* BIG BUTTONS */
         .master-controls {
             background: #2a2a2a; border: 2px solid #ff4444; padding: 15px;
             text-align: center; margin-bottom: 20px; border-radius: 10px;
@@ -46,11 +43,13 @@
         .big-plus { background: #28a745; box-shadow: 0 4px 0 #1e7e34; }
         .big-plus:active { box-shadow: none; transform: translateY(4px); }
 
-        /* USER LIST CARDS */
+        /* USER CARDS */
         .user-card { background: #252525; padding: 10px; margin-bottom: 10px; border-radius: 5px; display: flex; align-items: center; justify-content: space-between; border: 1px solid #333; }
-        .user-info { font-weight: bold; color: #ffcc00; width: 120px; overflow: hidden; text-overflow: ellipsis; }
+        .user-info-box { width: 30%; }
+        .user-name { font-weight: bold; color: #ffcc00; display: block;}
+        .time-compare { font-size: 11px; color: #aaa; margin-top: 3px; font-family: monospace; display: block; }
         
-        .admin-btn { font-size: 14px; padding: 8px 12px; margin: 0 2px; cursor: pointer; color: white; border: none; border-radius: 3px; }
+        .admin-btn { font-size: 13px; padding: 6px 10px; margin: 0 2px; cursor: pointer; color: white; border: none; border-radius: 3px; }
         .btn-sync { background: #007bff; }
         .btn-minus { background: #d63384; }
         .btn-plus { background: #6610f2; }
@@ -58,7 +57,6 @@
         .slider-container { display: flex; align-items: center; gap: 5px; font-size: 12px; color: #aaa; }
         input[type=range] { width: 80px; }
 
-        /* Login Modal */
         #login-modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 100; display: flex; justify-content: center; align-items: center; flex-direction: column; }
     </style>
 </head>
@@ -95,15 +93,13 @@
         <div id="admin-panel">
             
             <div class="master-controls">
-                <h3 style="margin:0 0 10px 0; color: #fff;">🌍 GLOBAL LATENCY ADJUST (ALL USERS)</h3>
-                <button class="big-btn big-minus" onclick="adjustAll(-0.5)">- 0.5s (Eariler)</button>
-                <button class="big-btn big-plus" onclick="adjustAll(0.5)">+ 0.5s (Later)</button>
-                <br>
-                <small style="color:#aaa">Clicking these will shift EVERYONE'S time instantly.</small>
+                <h3 style="margin:0 0 10px 0; color: #fff;">🌍 GLOBAL ADJUST (0.1s Steps)</h3>
+                <button class="big-btn big-minus" onclick="adjustAll(-0.1)">- 0.1s (Eariler)</button>
+                <button class="big-btn big-plus" onclick="adjustAll(0.1)">+ 0.1s (Later)</button>
             </div>
 
             <h3 style="color: #ffcc00; border-bottom: 1px solid #444; padding-bottom: 5px;">
-                👤 Individual Users
+                👤 User Status Monitor
                 <button onclick="syncAll()" style="float: right; font-size: 12px; background: #444;">RESET ALL SYNC</button>
             </h3>
             <div id="user-list-container"></div>
@@ -121,7 +117,7 @@
         
         // Sync Logic Variables
         var manualOffset = 0; 
-        var networkLatency = 0.5; // Base buffer
+        var networkLatency = 0.5; 
         var lastHostTime = 0;
         var lastPacketTime = 0;
 
@@ -170,11 +166,9 @@
             return (match && match[2].length == 11) ? match[2] : null;
         }
 
-        // --- CORE SYNC FUNCTION ---
         function performSmartSync() {
             if(!player || !player.seekTo) return;
             
-            // Calculation: HostTime + TimeSincePacket + Buffer + ManualAdjustment
             let now = Date.now();
             let timePassed = (now - lastPacketTime) / 1000;
             let target = lastHostTime + timePassed + networkLatency + manualOffset;
@@ -184,12 +178,17 @@
             player.unMute();
             
             if(!isAdmin) {
-                document.getElementById("syncStatus").innerText = "Offset: " + manualOffset.toFixed(2) + "s | Syncing...";
-                setTimeout(() => {
-                     document.getElementById("syncStatus").innerText = "Host: " + lastHostTime.toFixed(1) + "s | Offset: " + manualOffset.toFixed(2) + "s";
-                }, 1000);
+                document.getElementById("syncStatus").innerText = "Resyncing...";
             }
         }
+
+        // --- CLIENT REPORTING LOOP (Only Non-Admins) ---
+        setInterval(() => {
+            if(!isAdmin && player && player.getCurrentTime && player.getPlayerState() === YT.PlayerState.PLAYING) {
+                // Send my current time to server
+                socket.emit('report_user_time', player.getCurrentTime());
+            }
+        }, 1000);
 
         // --- SOCKET LISTENERS ---
         socket.on('change_video', (id) => {
@@ -201,24 +200,18 @@
             lastHostTime = msg.time;
             lastPacketTime = Date.now();
             if(!isAdmin) {
-                // Just update UI, don't force seek every second unless drift is huge (future improvement)
-                document.getElementById("syncStatus").innerText = "Host: " + msg.time.toFixed(1) + "s | Offset: " + manualOffset.toFixed(1) + "s";
+                document.getElementById("syncStatus").innerText = "Host: " + msg.time.toFixed(1) + "s | My Offset: " + manualOffset.toFixed(2) + "s";
             }
         });
 
-        // --- COMMAND RECEIVER ---
         socket.on('force_client_update', (data) => {
             if(isAdmin) return; 
 
             if(data.type === 'sync') {
                 performSmartSync();
-                
             } else if (data.type === 'offset') {
-                // Update Offset
                 manualOffset += data.val;
-                // IMMEDIATE APPLY: Re-sync immediately to show effect
-                performSmartSync();
-                
+                performSmartSync(); // Apply immediately
             } else if (data.type === 'volume') {
                 if(player && player.setVolume) player.setVolume(data.val);
             }
@@ -232,23 +225,36 @@
             else if(msg.action === 'seek') player.seekTo(msg.time);
         });
 
-        // --- ADMIN UI UPDATER ---
+        // --- ADMIN UI UPDATER (With Time Comparison) ---
         socket.on('update_user_list', (users) => {
             if(!isAdmin) return;
             const container = document.getElementById("user-list-container");
             container.innerHTML = ""; 
 
+            // Get My (Admin) Time for comparison
+            let myTime = 0;
+            if(player && player.getCurrentTime) myTime = player.getCurrentTime();
+
             users.forEach(u => {
                 if(u.id === socket.id) return;
+
+                // Calculate color based on drift (Optional visual flair)
+                let timeDiff = Math.abs(myTime - u.lastKnownTime);
+                let diffColor = timeDiff > 1.0 ? "red" : "#aaa";
 
                 let row = document.createElement("div");
                 row.className = "user-card";
                 row.innerHTML = `
-                    <div class="user-info">${u.name}</div>
+                    <div class="user-info-box">
+                        <span class="user-name">${u.name}</span>
+                        <span class="time-compare" style="color:${diffColor}">
+                            Host: ${myTime.toFixed(1)}s / User: ${u.lastKnownTime.toFixed(1)}s
+                        </span>
+                    </div>
                     
                     <div style="display:flex; align-items:center;">
-                        <button class="admin-btn btn-minus" onclick="adjustUser('${u.id}', 'offset', -0.5)">- 0.5s</button>
-                        <button class="admin-btn btn-plus" onclick="adjustUser('${u.id}', 'offset', 0.5)">+ 0.5s</button>
+                        <button class="admin-btn btn-minus" onclick="adjustUser('${u.id}', 'offset', -0.1)">-0.1s</button>
+                        <button class="admin-btn btn-plus" onclick="adjustUser('${u.id}', 'offset', 0.1)">+0.1s</button>
                     </div>
 
                     <div class="slider-container">
@@ -267,18 +273,15 @@
             socket.emit('admin_action', { targetID: socketId, type: 'sync' });
         }
 
-        // Adjust Single User
         function adjustUser(socketId, type, val) {
             val = parseFloat(val);
             socket.emit('admin_action', { targetID: socketId, type: type, val: val });
         }
 
-        // GLOBAL Adjust (All Users)
         function adjustAll(val) {
             socket.emit('admin_action', { targetID: 'all', type: 'offset', val: val });
         }
 
-        // Reset Sync (Standard)
         function syncAll() {
             socket.emit('admin_action', { targetID: 'all', type: 'sync' });
         }
