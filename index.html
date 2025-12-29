@@ -1,45 +1,75 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Ultra Low Latency Party</title>
+    <title>Advance Party Sync</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
-        body { background-color: #121212; color: white; text-align: center; font-family: sans-serif; margin: 0; padding: 10px; }
+        body { background-color: #0f0f0f; color: #eee; font-family: 'Segoe UI', sans-serif; margin: 0; padding: 20px; text-align: center; }
         
-        .control-panel { background: #222; padding: 15px; margin-bottom: 15px; border-radius: 8px; border: 1px solid #333; }
-        input { padding: 10px; width: 60%; border-radius: 5px; border: none; background: #333; color: white; }
-        button { padding: 10px; border-radius: 5px; border: none; cursor: pointer; font-weight: bold; margin: 5px; }
-        .load-btn { background-color: #007bff; color: white; }
+        /* Video Player Area */
+        #player-wrapper { position: relative; max-width: 800px; margin: 0 auto; border: 2px solid #333; box-shadow: 0 0 20px rgba(0,0,0,0.5); }
+        .video-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: transparent; z-index: 10; display: none; }
         
-        /* Big Red Button */
-        .sync-btn { 
-            background-color: #ff0000; color: white; 
-            width: 90%; max-width: 400px; padding: 15px; 
-            font-size: 18px; text-transform: uppercase;
-            box-shadow: 0px 0px 15px rgba(255, 0, 0, 0.4);
-            animation: pulse 2s infinite;
-        }
-        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.8; } 100% { opacity: 1; } }
+        /* Controls */
+        .controls { margin-top: 15px; background: #1e1e1e; padding: 15px; border-radius: 8px; display: inline-block; }
+        input[type="text"] { padding: 8px; width: 250px; background: #333; border: 1px solid #444; color: white; border-radius: 4px; }
+        button { padding: 8px 15px; cursor: pointer; background: #007bff; color: white; border: none; border-radius: 4px; font-weight: bold; }
+        button:hover { background: #0056b3; }
+        .status { color: #00ff00; margin-top: 10px; font-size: 14px; }
 
-        #player-container { position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; max-width: 800px; margin: auto; border: 2px solid #444; background: black;}
-        #player-container iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
-        .status { color: #00ff00; font-size: 12px; margin-top: 5px; }
+        /* ADMIN PANEL STYLES */
+        #admin-panel { display: none; margin-top: 30px; border-top: 2px solid #444; padding-top: 20px; text-align: left; max-width: 900px; margin-left: auto; margin-right: auto; }
+        .user-card { background: #252525; padding: 10px; margin-bottom: 10px; border-radius: 5px; display: flex; align-items: center; justify-content: space-between; border: 1px solid #333; }
+        .user-info { font-weight: bold; color: #ffcc00; width: 150px; }
+        
+        .admin-btn { font-size: 12px; padding: 5px 10px; margin: 0 2px; }
+        .btn-sync { background: #28a745; }
+        .btn-minus { background: #dc3545; }
+        .btn-plus { background: #17a2b8; }
+        
+        .slider-container { display: flex; align-items: center; gap: 5px; font-size: 12px; color: #aaa; }
+        input[type=range] { width: 80px; }
+
+        /* Login Modal */
+        #login-modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 100; display: flex; justify-content: center; align-items: center; flex-direction: column; }
     </style>
 </head>
 <body>
 
-    <div class="control-panel">
-        <input type="text" id="videoUrlInput" placeholder="Paste YouTube Link...">
-        <button class="load-btn" onclick="loadNewVideo()">Load</button>
-        <div class="status" id="statusText">Connecting...</div>
+    <div id="login-modal">
+        <h2>Enter Your Name</h2>
+        <input type="text" id="username" placeholder="Name..." style="font-size: 18px; padding: 10px;">
+        <br><br>
+        <div style="font-size: 12px; color: #aaa; margin-bottom: 10px;">Are you Admin? (Check only if you are host)</div>
+        <label><input type="checkbox" id="isAdminCheck"> I am Admin</label>
+        <br><br>
+        <button onclick="enterParty()" style="font-size: 18px;">JOIN PARTY</button>
     </div>
 
-    <div id="player-container">
-        <div id="player"></div>
+    <div id="main-content" style="display:none;">
+        <h1>🎥 Ultra Sync Party</h1>
+        
+        <div id="player-wrapper">
+            <div id="player"></div>
+            <div class="video-overlay" id="clickBlocker"></div>
+        </div>
+
+        <div class="status" id="syncStatus">Waiting for data...</div>
+
+        <div class="controls" id="videoLoader" style="display:none;">
+            <input type="text" id="videoUrlInput" placeholder="YouTube Link...">
+            <button onclick="loadNewVideo()">Load Video</button>
+        </div>
+
+        <div id="admin-panel">
+            <h2 style="color: #ff4444; border-bottom: 1px solid #444; padding-bottom: 5px;">
+                👑 Admin Dashboard 
+                <button onclick="syncAll()" style="float: right; font-size: 14px; background: red;">⚡ SYNC EVERYONE</button>
+            </h2>
+            <div id="user-list-container">
+                </div>
+        </div>
     </div>
-    
-    <br>
-    <button class="sync-btn" onclick="smartForceSync()">⚡ FIX AUDIO LAG / SYNC ⚡</button>
 
     <script src="/socket.io/socket.io.js"></script>
     <script src="https://www.youtube.com/iframe_api"></script>
@@ -47,123 +77,169 @@
     <script>
         var socket = io();
         var player;
-        var ignoreEvent = false;
+        var isAdmin = false;
+        var myName = "";
         
-        // Variables for Smart Sync Calculation
-        var lastHostTime = 0;      // Host er video te koto time chilo
-        var lastPacketTime = 0;    // Host er signal kokhon esheche (real time)
-        var isHost = false;        // Ami ki host?
+        // Sync Variables
+        var manualOffset = 0; // Admin can add +/- time here
+        var networkLatency = 0.5; // Default buffer
+        var lastHostTime = 0;
+        var lastPacketTime = 0;
 
-        function onYouTubeIframeAPIReady() {
-            player = new YT.Player('player', {
-                height: '100%',
-                width: '100%',
-                videoId: '', 
-                playerVars: { 'playsinline': 1, 'rel': 0, 'controls': 1, 'autoplay': 1, 'mute': 1 }, // Auto mute to allow autoplay
-                events: {
-                    'onReady': onPlayerReady,
-                    'onStateChange': onPlayerStateChange
-                }
-            });
+        // --- 1. INITIAL SETUP ---
+        function enterParty() {
+            myName = document.getElementById("username").value || "Guest";
+            isAdmin = document.getElementById("isAdminCheck").checked;
+            
+            document.getElementById("login-modal").style.display = "none";
+            document.getElementById("main-content").style.display = "block";
+            
+            // Join signal pathao
+            socket.emit('join_user', myName);
+
+            if(isAdmin) {
+                document.getElementById("videoLoader").style.display = "block";
+                document.getElementById("admin-panel").style.display = "block";
+                document.getElementById("clickBlocker").style.display = "none"; // Admin can click
+            } else {
+                document.getElementById("clickBlocker").style.display = "block"; // Users cannot click
+            }
         }
 
-        function onPlayerReady(event) {
-            document.getElementById("statusText").innerText = "Ready! Click Sync button to Unmute & Sync.";
+        // --- 2. YOUTUBE API ---
+        function onYouTubeIframeAPIReady() {
+            player = new YT.Player('player', {
+                height: '100%', width: '100%',
+                videoId: '',
+                playerVars: { 'playsinline': 1, 'controls': 0, 'disablekb': 1, 'rel': 0 }, // Controls hidden
+                events: { 'onStateChange': onPlayerStateChange }
+            });
         }
 
         function loadNewVideo() {
             var url = document.getElementById("videoUrlInput").value;
-            var videoId = extractVideoID(url);
-            if(videoId) {
-                socket.emit('change_video', videoId);
-                document.getElementById("videoUrlInput").value = "";
+            var vidId = url.split("v=")[1];
+            if(!vidId) vidId = url.split("/").pop(); // Simple parser
+            if(vidId) socket.emit('change_video', vidId);
+        }
+
+        // --- 3. SOCKET LISTENERS (Client Side) ---
+        
+        // Video Change
+        socket.on('change_video', (id) => {
+            if(player && player.loadVideoById) player.loadVideoById(id);
+        });
+
+        // Host Time Update (Heartbeat)
+        socket.on('time_update', (msg) => {
+            lastHostTime = msg.time;
+            lastPacketTime = Date.now();
+            if(!isAdmin) {
+                document.getElementById("syncStatus").innerText = "Host: " + msg.time.toFixed(1) + "s | Offset: " + (manualOffset*1000) + "ms";
             }
-        }
+        });
 
-        function extractVideoID(url) {
-            var regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
-            var match = url.match(regExp);
-            return (match && match[2].length == 11) ? match[2] : null;
-        }
+        // Admin Controlled Actions (Sync, Offset, Volume)
+        socket.on('force_client_update', (data) => {
+            if(isAdmin) return; // Admin nijer control e thakbe
 
-        // --- HOST LOGIC: Continuous Time Broadcast ---
-        setInterval(() => {
-            // Jodi video cholte thake ebong ami play kore thaki
-            if (player && player.getPlayerState && player.getPlayerState() == YT.PlayerState.PLAYING) {
-                // Host prottek second e tar current time pathabe
-                // Kintu amra bujhbo kivabe ke host? Je last play button chepeche sei host.
-                if(isHost){
-                    socket.emit('time_update', { time: player.getCurrentTime() });
+            if(data.type === 'sync') {
+                // Force Sync Logic
+                let now = Date.now();
+                let timePassed = (now - lastPacketTime) / 1000;
+                let target = lastHostTime + timePassed + networkLatency + manualOffset;
+                
+                player.seekTo(target, true);
+                player.playVideo();
+                player.unMute(); // Ensure audio is on
+                
+            } else if (data.type === 'offset') {
+                // Adjust Latency (+/-)
+                manualOffset += data.val; // val is in seconds (e.g., 0.05)
+                
+            } else if (data.type === 'volume') {
+                // 3D Effect / Sound Bar (Volume Control)
+                // data.val is 0 to 100
+                if(player && player.setVolume) {
+                    player.setVolume(data.val);
                 }
             }
-        }, 1000); // Prottek 1 second e update pathao
-
-        // --- CLIENT LOGIC ---
-
-        socket.on('change_video', function(newID) {
-            if(player && player.loadVideoById) player.loadVideoById(newID);
         });
 
-        socket.on('video_control', function(msg) {
-            ignoreEvent = true;
-            if (msg.action === 'play') {
-                player.seekTo(msg.time + 0.3, true); // 0.3s add korlam network delay cover korte
-                player.playVideo();
-                isHost = false; // Onno keu control korche, tai ami host na
-            } else if (msg.action === 'pause') {
-                player.pauseVideo();
-                isHost = false;
-            } else if (msg.action === 'seek') {
-                player.seekTo(msg.time, true);
-                isHost = false;
-            }
-            setTimeout(() => { ignoreEvent = false; }, 500);
+        socket.on('video_control', (msg) => {
+            if(isAdmin) return; // Ignore if I am admin
+            if(msg.action === 'play') player.playVideo();
+            else if(msg.action === 'pause') player.pauseVideo();
+            else if(msg.action === 'seek') player.seekTo(msg.time);
         });
 
-        // Host er "Heartbeat" (Time update) receive kora
-        socket.on('time_update', function(msg) {
-            lastHostTime = msg.time;
-            lastPacketTime = Date.now(); // Signal ashar time record koro
-            document.getElementById("statusText").innerText = "Host Time: " + Math.round(msg.time) + "s";
+        // --- 4. ADMIN DASHBOARD LOGIC ---
+        socket.on('update_user_list', (users) => {
+            if(!isAdmin) return;
+            
+            const container = document.getElementById("user-list-container");
+            container.innerHTML = ""; // Clear list
+
+            users.forEach(u => {
+                // Skip myself (Admin)
+                if(u.id === socket.id) return;
+
+                let row = document.createElement("div");
+                row.className = "user-card";
+                row.innerHTML = `
+                    <div class="user-info">${u.name}</div>
+                    
+                    <div>
+                        <small>Latency Fix:</small>
+                        <button class="admin-btn btn-minus" onclick="adjustUser('${u.id}', 'offset', -0.05)">-50ms</button>
+                        <button class="admin-btn btn-plus" onclick="adjustUser('${u.id}', 'offset', 0.05)">+50ms</button>
+                    </div>
+
+                    <div class="slider-container">
+                        <span>🔊 Vol:</span>
+                        <input type="range" min="0" max="100" value="100" onchange="adjustUser('${u.id}', 'volume', this.value)">
+                    </div>
+
+                    <button class="admin-btn btn-sync" onclick="forceSyncUser('${u.id}')">⚡ FIX</button>
+                `;
+                container.appendChild(row);
+            });
         });
 
-        // --- SMART FORCE SYNC FUNCTION ---
-        function smartForceSync() {
-            if(!player) return;
-            
-            // 1. Unmute (browser er policy fix korar jonno)
-            player.unMute(); 
-            
-            // 2. CALCULATION: Host er time koto chilo + Signal aste koto derry hoyeche
-            var now = Date.now();
-            var timePassedSinceSignal = (now - lastPacketTime) / 1000; // Millisecond ke Second e nilam
-            
-            // Amra assume korchi internet delay pray 0.5 second (Buffer)
-            var targetTime = lastHostTime + timePassedSinceSignal + 0.5;
-
-            console.log("Syncing to:", targetTime);
-            document.getElementById("statusText").innerText = "Syncing to " + targetTime.toFixed(2) + "s";
-
-            // 3. Jump to exact future time
-            player.seekTo(targetTime, true);
-            player.playVideo();
+        // Admin Functions to control users
+        function forceSyncUser(socketId) {
+            socket.emit('admin_action', { targetID: socketId, type: 'sync' });
         }
 
+        function adjustUser(socketId, type, val) {
+            // val need to be parsed (volume comes as string from slider)
+            val = parseFloat(val);
+            socket.emit('admin_action', { targetID: socketId, type: type, val: val });
+        }
+
+        function syncAll() {
+            socket.emit('admin_action', { targetID: 'all', type: 'sync' });
+        }
+
+        // --- 5. HOST BROADCAST LOOP ---
+        setInterval(() => {
+            if (isAdmin && player && player.getPlayerState && player.getPlayerState() == YT.PlayerState.PLAYING) {
+                socket.emit('time_update', { time: player.getCurrentTime() });
+            }
+        }, 1000);
+
         function onPlayerStateChange(event) {
-            if (ignoreEvent) return;
+            if (!isAdmin) return; // Only Admin sends commands
             
-            // Jodi ami Play/Pause kori, tahole ami ekhon Host
             if (event.data == YT.PlayerState.PLAYING) {
-                isHost = true;
                 socket.emit('video_control', { action: 'play', time: player.getCurrentTime() });
             } else if (event.data == YT.PlayerState.PAUSED) {
-                isHost = true;
                 socket.emit('video_control', { action: 'pause', time: player.getCurrentTime() });
             } else if (event.data == YT.PlayerState.BUFFERING) {
-                 isHost = true;
                  socket.emit('video_control', { action: 'seek', time: player.getCurrentTime() });
             }
         }
+
     </script>
 </body>
 </html>
