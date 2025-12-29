@@ -5,90 +5,118 @@ const server = http.createServer(app);
 const { Server } = require("socket.io");
 const io = new Server(server);
 
-// HTML ফাইল দেখানোর জন্য
 app.get('/', (req, res) => {
   res.sendFile(__dirname + '/index.html');
 });
 
-// === GLOBAL STATE (পুরো রুমের অবস্থা) ===
+// === STATE ===
 let roomState = {
-    videoId: "dQw4w9WgXcQ", // ডিফল্ট ভিডিও (চাইলে চেঞ্জ করতে পারেন)
+    videoId: "dQw4w9WgXcQ",
     isPlaying: false,
-    lastVideoTime: 0,      // ভিডিওর কোন সেকেন্ডে আছে
-    lastServerTime: Date.now() // রিয়েল টাইমে কখন আপডেট হয়েছে
+    lastVideoTime: 0,
+    lastServerTime: Date.now()
 };
 
-// === USER LIST (কে কে কানেক্টেড আছে) ===
+// Users Store: { socketId: { name: "...", position: {x: 0, y: 0}, label: "Center" } }
 let connectedUsers = {};
 
-io.on('connection', (socket) => {
-  console.log('New connection:', socket.id);
+// Speaker Positions (Coordinates: X=-1 Left, X=1 Right, Y=1 Front, Y=-1 Back)
+const POSITIONS = {
+    'fl': { x: -1, y: 1, label: "Front Left ◤" },
+    'fr': { x: 1, y: 1, label: "Front Right ◥" },
+    'rl': { x: -1, y: -1, label: "Rear Left ◣" },
+    'rr': { x: 1, y: -1, label: "Rear Right ◢" },
+    'c':  { x: 0, y: 0, label: "Center ⏺" }
+};
 
-  // 1. নতুন কেউ এলে তাকে বর্তমান অবস্থা পাঠানো
+io.on('connection', (socket) => {
+  
+  // 1. Initial Data
   socket.emit('server_update', roomState);
   socket.emit('force_change_video', roomState.videoId);
-  socket.emit('user_list_update', connectedUsers); // বর্তমান মেম্বার লিস্ট
+  socket.emit('user_list_update', connectedUsers);
 
-  // 2. ইউজার যখন নাম দিয়ে জয়েন করবে
+  // 2. User Joins
   socket.on('join_user', (name) => {
-    connectedUsers[socket.id] = name;
-    // সবাইকে নতুন লিস্ট পাঠানো
+    connectedUsers[socket.id] = { 
+        name: name, 
+        position: POSITIONS['c'], // Default Center
+        posKey: 'c'
+    };
     io.emit('user_list_update', connectedUsers);
-    console.log(`${name} joined!`);
+    
+    // User ke janano tar position ki
+    socket.emit('position_update', POSITIONS['c'].label);
   });
 
-  // 3. কেউ চলে গেলে (Disconnect)
   socket.on('disconnect', () => {
-    if (connectedUsers[socket.id]) {
-      console.log(`${connectedUsers[socket.id]} left.`);
-      delete connectedUsers[socket.id];
-      // সবাইকে আপডেট করা লিস্ট পাঠানো
-      io.emit('user_list_update', connectedUsers);
-    }
+    delete connectedUsers[socket.id];
+    io.emit('user_list_update', connectedUsers);
   });
 
-  // ===================================
-  //       ADMIN COMMANDS (নিয়ন্ত্রণ)
-  // ===================================
+  // === ADMIN COMMANDS ===
 
-  // ক. অ্যাডমিন প্লে/পজ বা সিক (Seek) করলে
   socket.on('admin_update', (data) => {
     roomState.isPlaying = data.isPlaying;
     roomState.lastVideoTime = data.videoTime;
-    roomState.lastServerTime = Date.now(); // একদম সঠিক সময় রেকর্ড করা
-    
-    // সবাইকে আপডেট পাঠানো
+    roomState.lastServerTime = Date.now();
     io.emit('server_update', roomState);
   });
 
-  // খ. অ্যাডমিন ভিডিও চেঞ্জ করলে
   socket.on('admin_change_video', (id) => {
     roomState.videoId = id;
     roomState.isPlaying = false;
     roomState.lastVideoTime = 0;
-    
-    // সবাইকে ভিডিও চেঞ্জ করতে বলা
     io.emit('force_change_video', id);
-    // স্টেট রিসেট করে আপডেট পাঠানো
     io.emit('server_update', roomState);
   });
 
-  // গ. অ্যাডমিন নির্দিষ্ট কারো সিঙ্ক ফিক্স করলে (Remote Sync)
-  socket.on('admin_force_sync_user', (targetSocketId) => {
-    // শুধু ওই নির্দিষ্ট ইউজারকে মেসেজ পাঠানো
-    io.to(targetSocketId).emit('trigger_sync');
+  // Assign Position (Admin decides where user sits)
+  socket.on('admin_assign_pos', (data) => {
+    // data = { targetId: '...', posKey: 'fl' }
+    if(connectedUsers[data.targetId]) {
+        let newPos = POSITIONS[data.posKey];
+        connectedUsers[data.targetId].position = newPos;
+        connectedUsers[data.targetId].posKey = data.posKey;
+        
+        // Update Admin List
+        io.emit('user_list_update', connectedUsers);
+        // Tell that specific user
+        io.to(data.targetId).emit('position_update', newPos.label);
+    }
   });
 
-  // ঘ. অ্যাডমিন কারো ভলিউম কমালে/ বাড়ালে
-  socket.on('admin_volume_control', (data) => {
-    // data = { targetId: '...', volume: 50 }
-    io.to(data.targetId).emit('set_volume', data.volume);
+  socket.on('admin_force_sync_user', (targetId) => {
+    io.to(targetId).emit('trigger_sync');
+  });
+
+  // === 3D JOYSTICK LOGIC (The Magic) ===
+  socket.on('joystick_move', (coords) => {
+    // coords = { x: 0.5, y: -0.5 } (Joystick position)
+    
+    // Calculate volume for EACH user based on distance from joystick
+    for (let socketId in connectedUsers) {
+        let user = connectedUsers[socketId];
+        let uPos = user.position;
+
+        // Distance Formula
+        let dist = Math.sqrt(Math.pow(coords.x - uPos.x, 2) + Math.pow(coords.y - uPos.y, 2));
+        
+        // Max distance in a 2x2 grid is approx 2.8. Let's normalize.
+        // Closer = Louder. Farther = Quieter.
+        // Base volume logic:
+        let volume = 100 - (dist * 40); // Adjust factor (40) to change sensitivity
+        
+        if (volume > 100) volume = 100;
+        if (volume < 10) volume = 10; // Minimum volume 10%
+
+        io.to(socketId).emit('set_volume', Math.floor(volume));
+    }
   });
 
 });
 
-// === SERVER PORT SETUP (হোস্টিংয়ের জন্য জরুরি) ===
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+  console.log(`3D Audio Server running on ${PORT}`);
 });
