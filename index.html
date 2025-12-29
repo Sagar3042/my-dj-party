@@ -3,43 +3,52 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>RealTime Sync</title>
+    <title>Instant Sync Pro</title>
     <style>
         body { background: #000; color: #fff; font-family: sans-serif; margin: 0; overflow: hidden; text-align: center; }
         
-        /* LOGIN */
+        /* LOGIN STYLES */
         #login { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 100; display: flex; flex-direction: column; justify-content: center; align-items: center; }
         input { padding: 15px; background: #222; border: 1px solid #444; color: white; border-radius: 5px; font-size: 16px; width: 70%; margin-bottom: 20px; }
         .btn { padding: 15px 40px; font-size: 18px; border: none; border-radius: 50px; font-weight: bold; cursor: pointer; margin: 10px; width: 200px; }
         .btn-dj { background: #ff0050; color: white; }
         .btn-listen { background: #00f2ea; color: black; }
 
-        /* UI LAYOUT */
+        /* FORCE SYNC BUTTON ANIMATION */
+        @keyframes pulse-red {
+            0% { box-shadow: 0 0 0 0 rgba(255, 0, 80, 0.7); }
+            70% { box-shadow: 0 0 0 10px rgba(255, 0, 80, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(255, 0, 80, 0); }
+        }
+
+        #force-sync-btn {
+            margin-top: 50px; 
+            background: linear-gradient(45deg, #ff0050, #ff0000);
+            border: none; 
+            color: white; 
+            padding: 15px 30px; 
+            border-radius: 50px;
+            font-weight: bold;
+            font-size: 16px;
+            animation: pulse-red 2s infinite;
+        }
+
+        /* UI HIDDEN/VISIBLE CLASSES */
         .hidden { display: none !important; }
         #admin-ui, #user-ui { padding: 20px; height: 100vh; box-sizing: border-box; }
         
-        /* MONITOR LIST */
-        .user-list { text-align: left; margin-top: 20px; max-height: 300px; overflow-y: auto; }
-        .user-row { background: #111; padding: 10px; border-bottom: 1px solid #222; display: flex; justify-content: space-between; align-items: center; }
-        .status-dot { height: 10px; width: 10px; border-radius: 50%; display: inline-block; margin-right: 10px; }
-        .green { background: #0f0; } .red { background: #f00; }
-
-        /* JOYSTICK */
+        /* ADMIN JOYSTICK */
         .joystick-area { width: 200px; height: 200px; background: radial-gradient(circle, #222, #000); border: 2px solid #333; border-radius: 50%; margin: 20px auto; position: relative; touch-action: none; }
         .knob { width: 50px; height: 50px; background: #00f2ea; border-radius: 50%; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); }
 
         /* PLAYER HIDDEN */
         #player-wrapper { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
-
-        /* USER DISPLAY */
-        .sync-text { font-size: 24px; color: #00f2ea; margin-top: 20px; font-weight: bold; }
-        .lag-text { color: #555; font-size: 12px; margin-top: 10px; }
     </style>
 </head>
 <body>
 
     <div id="login">
-        <h1 style="color:white">SYNC <span style="color:#00f2ea">REALTIME</span></h1>
+        <h1 style="color:white">ADVANCED <span style="color:#00f2ea">SYNC</span></h1>
         <input type="text" id="username" placeholder="Enter Name">
         <button class="btn btn-dj" onclick="startApp('admin')">DJ ADMIN</button>
         <button class="btn btn-listen" onclick="startApp('user')">LISTENER</button>
@@ -59,22 +68,20 @@
         <div class="joystick-area" id="joystick">
             <div class="knob" id="knob"></div>
         </div>
-
-        <h3>Live User Monitor</h3>
-        <div class="user-list" id="monitor-list"></div>
+        <p style="color:#555; font-size:12px">Control 3D Audio</p>
     </div>
 
     <div id="user-ui" class="hidden">
-        <h2 style="color:#888;">CONNECTED</h2>
-        <div class="sync-text" id="status">Waiting for DJ...</div>
-        <div class="lag-text" id="debug">Lag: 0ms</div>
+        <h2 style="color:#888;">LISTENER MODE</h2>
+        <div style="font-size: 24px; color: #00f2ea; margin-top: 20px; font-weight: bold;" id="status">Waiting for DJ...</div>
         
         <h1 id="vol-display" style="font-size: 4rem; margin-top: 40px;">100%</h1>
         <p>Volume</p>
 
-        <button onclick="forceSync()" style="margin-top:50px; background:#222; border:1px solid #444; color:white; padding:10px;">
-            Click if audio stops
+        <button id="force-sync-btn" onclick="perfectForceSync()">
+            ⚡ FORCE SYNC (Boost +2.5s)
         </button>
+        <p style="color:#555; font-size: 11px; margin-top: 5px;">Tap if audio is lagging behind</p>
     </div>
 
     <div id="player-wrapper"><div id="player"></div></div>
@@ -86,14 +93,14 @@
         let player;
         let role = '';
         let myName = '';
-        let adminState = { time: 0, isPlaying: false, lastUpdate: 0 };
+        let lastKnownAdminState = { time: 0, isPlaying: false, timestamp: 0 };
 
         // --- STARTUP ---
         function startApp(r) {
             myName = document.getElementById('username').value || "Guest";
             role = r;
             
-            // Audio Unlock (Silent Sound)
+            // Audio Unlock
             const ctx = new (window.AudioContext || window.webkitAudioContext)();
             const osc = ctx.createOscillator();
             const gain = ctx.createGain();
@@ -125,7 +132,6 @@
 
         // --- ADMIN LOGIC ---
         function startAdminHeartbeat() {
-            // Admin sends precise time every 500ms
             setInterval(() => {
                 if(player && player.getCurrentTime) {
                     let t = player.getCurrentTime();
@@ -138,11 +144,6 @@
                         time: t,
                         isPlaying: isPlaying
                     });
-
-                    // Force sync if paused to ensure everyone pauses at exact frame
-                    if(!isPlaying) {
-                        socket.emit('admin_seek', t);
-                    }
                 }
             }, 500);
         }
@@ -158,117 +159,79 @@
             else player.playVideo();
         }
 
-        // --- USER LOGIC (SMART SYNC) ---
+        function onPlayerStateChange(e) {
+            // Optional: Handle buffering
+        }
+
+        // --- USER LOGIC ---
         
         socket.on('load_track', (id) => { if(player) player.loadVideoById(id); });
 
         socket.on('sync_pulse', (data) => {
-            // This runs every 500ms
             if(role !== 'user') return;
             
-            adminState = data;
+            // Store data for calculation
+            lastKnownAdminState = data;
             
-            let now = Date.now();
-            let networkDelay = (now - data.timestamp) / 1000; // Time taken for signal to arrive
-            let targetTime = data.time + networkDelay; // Admin is actually here now
-            
-            let myTime = player.getCurrentTime();
-            let diff = Math.abs(myTime - targetTime);
-
-            document.getElementById('debug').innerText = `Lag: ${(diff*1000).toFixed(0)}ms`;
-
-            // 1. STATE SYNC (Play/Pause)
             if(data.isPlaying) {
                 document.getElementById('status').innerText = "Playing Live";
+                // Only start if totally stopped, otherwise trust Force Sync
                 if(player.getPlayerState() !== 1 && player.getPlayerState() !== 3) {
                     player.playVideo();
                 }
             } else {
                 document.getElementById('status').innerText = "Paused";
-                if(player.getPlayerState() === 1) {
-                    player.pauseVideo();
-                }
-            }
-
-            // 2. TIME DRIFT CORRECTION
-            if(data.isPlaying) {
-                // If drift is > 0.5s, HARD SYNC (Seek)
-                if(diff > 0.5) {
-                    console.log("Drift detected, correcting...");
-                    // Seek slightly ahead to account for seeking lag
-                    player.seekTo(targetTime + 0.1, true);
-                }
-                // If drift is small (0.1 - 0.5s), playback rate could be tweaked (Advanced), 
-                // but for now simple seek is safer for reliability.
+                if(player.getPlayerState() === 1) player.pauseVideo();
             }
         });
 
-        socket.on('force_seek', (t) => {
-            if(role === 'user') player.seekTo(t, true);
-        });
+        socket.on('force_seek', (t) => { if(role === 'user') player.seekTo(t, true); });
+        socket.on('force_play', () => { if(role === 'user') player.playVideo(); });
+        socket.on('force_pause', () => { if(role === 'user') player.pauseVideo(); });
 
-        // --- 3D AUDIO LOGIC ---
         socket.on('adjust_volume', (coords) => {
             if(role !== 'user') return;
-            // Simplified 3D Logic:
-            // Assuming this user is "Center" by default unless we assign positions.
-            // For now, let's keep it simple: Volume based on Y axis (Front/Rear)
-            // Ideally we need to assign positions like before.
-            
-            // Let's assume random position for effect if not set? 
-            // No, let's assume User is CENTER.
-            // So if joystick is CENTER (0,0), Volume 100%. 
-            // If joystick moves away, volume drops slightly.
-            
             let dist = Math.sqrt(coords.x*coords.x + coords.y*coords.y);
             let vol = Math.max(10, 100 - (dist * 50));
-            
             if(player) player.setVolume(vol);
             document.getElementById('vol-display').innerText = Math.floor(vol) + "%";
         });
 
-        // --- MONITORING UI ---
-        // User sends time report
-        setInterval(() => {
-            if(role === 'user' && player && player.getCurrentTime) {
-                socket.emit('report_time', player.getCurrentTime());
-            }
-        }, 1000);
+        // ==========================================
+        // 🔥 THE NEW "FUTURE PREDICTION" SYNC LOGIC
+        // ==========================================
+        function perfectForceSync() {
+            if(!player || !lastKnownAdminState) return;
 
-        socket.on('update_users', (list) => { updateMonitor(list); });
-        socket.on('monitor_update', (d) => {
-            let el = document.getElementById('time-' + d.id);
-            if(el) {
-                el.innerText = d.time.toFixed(1) + 's';
-                // Compare with admin locally
-                if(role === 'admin' && player) {
-                    let diff = Math.abs(player.getCurrentTime() - d.time);
-                    let dot = document.getElementById('dot-' + d.id);
-                    if(diff > 1.0) dot.className = "status-dot red";
-                    else dot.className = "status-dot green";
-                }
-            }
-        });
+            // 1. Calculate how much time passed since Admin sent signal
+            let now = Date.now();
+            let dataAge = (now - lastKnownAdminState.timestamp) / 1000;
+            
+            // 2. Where is Admin NOW?
+            let currentAdminTime = lastKnownAdminState.time + dataAge;
 
-        function updateMonitor(list) {
-            if(role !== 'admin') return;
-            const div = document.getElementById('monitor-list');
-            div.innerHTML = "";
-            for(let id in list) {
-                if(list[id].role === 'admin') continue;
-                div.innerHTML += `
-                    <div class="user-row">
-                        <div>
-                            <span id="dot-${id}" class="status-dot green"></span>
-                            <b>${list[id].name}</b>
-                        </div>
-                        <span id="time-${id}">0.0s</span>
-                    </div>
-                `;
+            // 3. TARGET CALCULATION:
+            // Admin Now + 2.5 Seconds (Buffer for loading)
+            // Example: Admin is at 10s. We jump to 12.5s.
+            // By the time video loads (approx 2s later), Admin will be at 12s.
+            // We will be slightly ahead or perfectly matched.
+            
+            let bufferTime = 2.5; 
+            let targetTime = currentAdminTime + bufferTime;
+
+            document.getElementById('status').innerText = `Syncing to ${targetTime.toFixed(1)}s...`;
+
+            // 4. Execute Jump
+            player.seekTo(targetTime, true);
+            
+            if(lastKnownAdminState.isPlaying) {
+                player.playVideo();
+            } else {
+                player.pauseVideo();
             }
         }
 
-        // --- JOYSTICK INPUT ---
+        // --- JOYSTICK INPUT (Admin) ---
         function setupJoystick() {
             const pad = document.getElementById('joystick');
             const knob = document.getElementById('knob');
@@ -295,10 +258,6 @@
             knob.addEventListener('touchstart', () => dragging = true);
             document.addEventListener('touchend', () => dragging = false);
             document.addEventListener('touchmove', (e) => { if(dragging) move(e); });
-        }
-        
-        function forceSync() {
-            if(player) player.playVideo();
         }
     </script>
 </body>
