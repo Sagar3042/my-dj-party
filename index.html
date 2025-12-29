@@ -24,10 +24,9 @@
         button:hover { background: #0056b3; }
         .status { color: #00ff00; margin-top: 10px; font-size: 14px; }
 
-        /* --- ADMIN PANEL STYLES --- */
+        /* ADMIN PANEL */
         #admin-panel { display: none; margin-top: 30px; border-top: 2px solid #444; padding-top: 20px; text-align: left; max-width: 900px; margin-left: auto; margin-right: auto; }
         
-        /* BIG BUTTONS */
         .master-controls {
             background: #2a2a2a; border: 2px solid #ff4444; padding: 15px;
             text-align: center; margin-bottom: 20px; border-radius: 10px;
@@ -39,11 +38,9 @@
         }
         .big-minus { background: #dc3545; box-shadow: 0 4px 0 #a71d2a; }
         .big-minus:active { box-shadow: none; transform: translateY(4px); }
-        
         .big-plus { background: #28a745; box-shadow: 0 4px 0 #1e7e34; }
         .big-plus:active { box-shadow: none; transform: translateY(4px); }
 
-        /* USER CARDS */
         .user-card { background: #252525; padding: 10px; margin-bottom: 10px; border-radius: 5px; display: flex; align-items: center; justify-content: space-between; border: 1px solid #333; }
         .user-info-box { width: 30%; }
         .user-name { font-weight: bold; color: #ffcc00; display: block;}
@@ -91,11 +88,10 @@
         </div>
 
         <div id="admin-panel">
-            
             <div class="master-controls">
                 <h3 style="margin:0 0 10px 0; color: #fff;">🌍 GLOBAL ADJUST (0.1s Steps)</h3>
-                <button class="big-btn big-minus" onclick="adjustAll(-0.1)">- 0.1s (Eariler)</button>
-                <button class="big-btn big-plus" onclick="adjustAll(0.1)">+ 0.1s (Later)</button>
+                <button class="big-btn big-minus" onclick="adjustAll(-0.1)">- 0.1s</button>
+                <button class="big-btn big-plus" onclick="adjustAll(0.1)">+ 0.1s</button>
             </div>
 
             <h3 style="color: #ffcc00; border-bottom: 1px solid #444; padding-bottom: 5px;">
@@ -117,7 +113,7 @@
         
         // Sync Logic Variables
         var manualOffset = 0; 
-        var networkLatency = 0.5; 
+        var networkLatency = 0.3; // আরো টাইট বাফার (Hard Sync)
         var lastHostTime = 0;
         var lastPacketTime = 0;
 
@@ -166,11 +162,15 @@
             return (match && match[2].length == 11) ? match[2] : null;
         }
 
+        // --- HARD SYNC FUNCTION ---
+        // এই ফাংশনটি এখন আরো নিখুঁতভাবে সিঙ্ক করবে
         function performSmartSync() {
             if(!player || !player.seekTo) return;
             
             let now = Date.now();
             let timePassed = (now - lastPacketTime) / 1000;
+            
+            // Formula: HostTime + ProcessingTime + NetworkDelay + ManualAdjustment
             let target = lastHostTime + timePassed + networkLatency + manualOffset;
             
             player.seekTo(target, true);
@@ -178,17 +178,9 @@
             player.unMute();
             
             if(!isAdmin) {
-                document.getElementById("syncStatus").innerText = "Resyncing...";
+                document.getElementById("syncStatus").innerText = "Resyncing to " + target.toFixed(2) + "s...";
             }
         }
-
-        // --- CLIENT REPORTING LOOP (Only Non-Admins) ---
-        setInterval(() => {
-            if(!isAdmin && player && player.getCurrentTime && player.getPlayerState() === YT.PlayerState.PLAYING) {
-                // Send my current time to server
-                socket.emit('report_user_time', player.getCurrentTime());
-            }
-        }, 1000);
 
         // --- SOCKET LISTENERS ---
         socket.on('change_video', (id) => {
@@ -196,10 +188,31 @@
             if(player && player.loadVideoById) player.loadVideoById(id);
         });
 
+        // নতুন ইউজার এলে অ্যাডমিন সাথে সাথে টাইম পাঠাবে
+        socket.on('admin_request_time', () => {
+            if(isAdmin && player && player.getCurrentTime) {
+                socket.emit('time_update', { time: player.getCurrentTime() });
+            }
+        });
+
         socket.on('time_update', (msg) => {
             lastHostTime = msg.time;
             lastPacketTime = Date.now();
+            
             if(!isAdmin) {
+                // AUTO-JUMP LOGIC:
+                // যদি আমার টাইম এবং হোস্টের টাইমের পার্থক্য ২ সেকেন্ডের বেশি হয়,
+                // তাহলে জোর করে সিঙ্ক করো (নতুন ইউজারদের জন্য এটি কাজ করবে)
+                if(player && player.getCurrentTime) {
+                    let myTime = player.getCurrentTime();
+                    let diff = Math.abs(myTime - msg.time);
+                    
+                    if(diff > 2.0) {
+                         console.log("Drift too high, Auto Syncing...");
+                         performSmartSync();
+                    }
+                }
+
                 document.getElementById("syncStatus").innerText = "Host: " + msg.time.toFixed(1) + "s | My Offset: " + manualOffset.toFixed(2) + "s";
             }
         });
@@ -225,22 +238,26 @@
             else if(msg.action === 'seek') player.seekTo(msg.time);
         });
 
-        // --- ADMIN UI UPDATER (With Time Comparison) ---
+        // --- ADMIN UI LOOP ---
+        setInterval(() => {
+            if(!isAdmin && player && player.getCurrentTime && player.getPlayerState() === YT.PlayerState.PLAYING) {
+                socket.emit('report_user_time', player.getCurrentTime());
+            }
+        }, 1000);
+
         socket.on('update_user_list', (users) => {
             if(!isAdmin) return;
             const container = document.getElementById("user-list-container");
             container.innerHTML = ""; 
 
-            // Get My (Admin) Time for comparison
             let myTime = 0;
             if(player && player.getCurrentTime) myTime = player.getCurrentTime();
 
             users.forEach(u => {
                 if(u.id === socket.id) return;
 
-                // Calculate color based on drift (Optional visual flair)
                 let timeDiff = Math.abs(myTime - u.lastKnownTime);
-                let diffColor = timeDiff > 1.0 ? "red" : "#aaa";
+                let diffColor = timeDiff > 0.5 ? "red" : "#aaa";
 
                 let row = document.createElement("div");
                 row.className = "user-card";
@@ -248,7 +265,7 @@
                     <div class="user-info-box">
                         <span class="user-name">${u.name}</span>
                         <span class="time-compare" style="color:${diffColor}">
-                            Host: ${myTime.toFixed(1)}s / User: ${u.lastKnownTime.toFixed(1)}s
+                            Host: ${myTime.toFixed(1)} / User: ${u.lastKnownTime.toFixed(1)}
                         </span>
                     </div>
                     
@@ -268,25 +285,21 @@
             });
         });
 
-        // --- ADMIN FUNCTIONS ---
         function forceSyncUser(socketId) {
             socket.emit('admin_action', { targetID: socketId, type: 'sync' });
         }
-
         function adjustUser(socketId, type, val) {
             val = parseFloat(val);
             socket.emit('admin_action', { targetID: socketId, type: type, val: val });
         }
-
         function adjustAll(val) {
             socket.emit('admin_action', { targetID: 'all', type: 'offset', val: val });
         }
-
         function syncAll() {
             socket.emit('admin_action', { targetID: 'all', type: 'sync' });
         }
 
-        // --- HOST BROADCAST LOOP ---
+        // Host Loop
         setInterval(() => {
             if (isAdmin && player && player.getPlayerState && player.getPlayerState() == YT.PlayerState.PLAYING) {
                 socket.emit('time_update', { time: player.getCurrentTime() });

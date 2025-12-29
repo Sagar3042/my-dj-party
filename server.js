@@ -20,14 +20,16 @@ io.on('connection', (socket) => {
         name: name, 
         offset: 0, 
         volume: 100,
-        lastKnownTime: 0 // ইউজারের বর্তমান টাইম স্টোর করার জন্য
+        lastKnownTime: 0 
     };
     
-    // ভিডিও চললে সাথে সাথে আইডি দাও
+    // ১. ভিডিও চললে আইডি দাও
     if (currentVideoID) {
         socket.emit('change_video', currentVideoID);
+        // ২. অ্যাডমিনকে বলো আর্জেন্ট টাইম আপডেট পাঠাতে (নতুন ইউজারের জন্য)
+        io.emit('admin_request_time'); 
     }
-    // আপডেট লিস্ট পাঠাও
+    
     io.emit('update_user_list', Object.values(users));
   });
 
@@ -36,7 +38,6 @@ io.on('connection', (socket) => {
     io.emit('update_user_list', Object.values(users));
   });
 
-  // --- NEW: ইউজার তার নিজের টাইম রিপোর্ট করবে ---
   socket.on('report_user_time', (time) => {
     if(users[socket.id]) {
         users[socket.id].lastKnownTime = time;
@@ -53,6 +54,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('time_update', (msg) => {
+    // এই টাইম আপডেট সবার কাছে পাঠাও
     socket.broadcast.emit('time_update', msg);
   });
 
@@ -66,9 +68,8 @@ io.on('connection', (socket) => {
   });
 });
 
-// --- NEW: প্রতি ১ সেকেন্ডে অ্যাডমিনকে সব ইউজারের লাইভ স্ট্যাটাস পাঠানো ---
+// লাইভ মনিটরিং লুপ
 setInterval(() => {
-    // এই ব্রডকাস্টটি শুধুমাত্র ইউজার লিস্ট রিফ্রেশ করার জন্য
     io.emit('update_user_list', Object.values(users));
 }, 1000);
 
