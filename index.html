@@ -111,7 +111,6 @@
                 document.getElementById("videoLoader").style.display = "block";
                 document.getElementById("admin-panel").style.display = "block";
                 document.getElementById("clickBlocker").style.display = "none"; 
-                // Admin doesn't see waiting screen if they need to load something
                 document.getElementById("waiting-screen").innerHTML = "<h2>Paste a link below to start</h2>";
             } else {
                 document.getElementById("clickBlocker").style.display = "block"; 
@@ -121,7 +120,7 @@
         function onYouTubeIframeAPIReady() {
             player = new YT.Player('player', {
                 height: '100%', width: '100%',
-                videoId: '', // Initially Empty
+                videoId: '', 
                 playerVars: { 'playsinline': 1, 'controls': 0, 'disablekb': 1, 'rel': 0 },
                 events: { 'onStateChange': onPlayerStateChange }
             });
@@ -129,24 +128,22 @@
 
         function loadNewVideo() {
             var url = document.getElementById("videoUrlInput").value;
-            // Extract Video ID
-            var vidId = "";
-            try {
-                if (url.includes("youtu.be")) {
-                    vidId = url.split("/").pop();
-                } else if (url.includes("v=")) {
-                    vidId = url.split("v=")[1].split("&")[0];
-                } else {
-                    vidId = url; // assume id was pasted
-                }
-            } catch(e) { console.log(e); }
-
-            if(vidId && vidId.length > 5) {
-                socket.emit('change_video', vidId);
+            // RESTORED ORIGINAL PARSING LOGIC
+            var videoId = extractVideoID(url);
+            
+            if(videoId) {
+                socket.emit('change_video', videoId);
                 document.getElementById("videoUrlInput").value = "";
             } else {
-                alert("Invalid YouTube Link!");
+                alert("Invalid YouTube Link! Please copy full link.");
             }
+        }
+
+        // --- ORIGINAL ROBUST ID EXTRACTOR ---
+        function extractVideoID(url) {
+            var regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+            var match = url.match(regExp);
+            return (match && match[2].length == 11) ? match[2] : null;
         }
 
         // --- SOCKET LISTENERS ---
@@ -191,7 +188,6 @@
 
         socket.on('video_control', (msg) => {
             if(isAdmin) return;
-            // Ensure waiting screen is gone
             document.getElementById("waiting-screen").style.display = "none";
             
             if(msg.action === 'play') player.playVideo();
