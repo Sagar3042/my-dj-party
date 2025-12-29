@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>DJ Admin Panel</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body { background-color: #121212; color: white; font-family: monospace; text-align: center; margin: 0; }
+        
+        /* LOGIN SCREEN */
+        #login-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 99; display: flex; flex-direction: column; justify-content: center; align-items: center; }
+        input.name-input { padding: 15px; width: 70%; max-width: 300px; margin-bottom: 20px; border-radius: 5px; border: 1px solid #444; background: #222; color: white; text-align: center; font-size: 18px; }
+        .role-btn { padding: 20px 30px; margin: 10px; font-size: 18px; border-radius: 10px; border: none; cursor: pointer; width: 80%; max-width: 300px; font-weight: bold; }
+        
+        /* ADMIN DASHBOARD */
+        .dashboard { display: none; padding: 20px; text-align: left; }
+        .user-card { background: #222; padding: 10px; margin-bottom: 10px; border-radius: 8px; border: 1px solid #333; display: flex; flex-direction: column; gap: 10px; }
+        .user-header { display: flex; justify-content: space-between; font-weight: bold; color: cyan; }
+        .controls-row { display: flex; gap: 10px; align-items: center; }
+        
+        /* Controls */
+        input[type=range] { width: 100%; }
+        button.mini-btn { padding: 5px 10px; border: none; border-radius: 4px; cursor: pointer; color: white; font-weight: bold; }
+        .btn-sync { background: #ff0055; }
+        .btn-vol { background: #007bff; }
+
+        /* PLAYER (Hidden for Admin mostly, visible for user) */
+        #player-box { position: relative; padding-bottom: 56.25%; height: 0; border: 2px solid #333; margin-top: 10px; }
+        iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+        #blocker { position: absolute; top:0; left:0; width:100%; height:100%; z-index:10; display:none; }
+
+        /* Admin Input Area */
+        .admin-inputs { background: #1a1a1a; padding: 15px; margin-bottom: 20px; border-radius: 10px; }
+        .url-input { padding: 10px; width: 60%; background: #333; color: white; border: none; }
+    </style>
+</head>
+<body>
+
+    <div id="login-screen">
+        <h1 style="color:white;">DJ Connect</h1>
+        <input type="text" id="username" class="name-input" placeholder="Enter Your Name">
+        <button class="role-btn" style="background:#dc3545; color:white;" onclick="joinAs('admin')">👑 I am ADMIN</button>
+        <button class="role-btn" style="background:#28a745; color:white;" onclick="joinAs('user')">🎧 I am LISTENER</button>
+    </div>
+
+    <div id="admin-panel" class="dashboard">
+        <h2>🎛️ Control Panel</h2>
+        
+        <div class="admin-inputs">
+            <input type="text" id="urlInput" class="url-input" placeholder="Paste YouTube Link...">
+            <button class="mini-btn btn-vol" onclick="changeVideo()" style="padding: 10px;">Play Video</button>
+        </div>
+
+        <h3>Active Listeners:</h3>
+        <div id="user-list">
+            </div>
+    </div>
+
+    <div id="player-container" style="display:none;">
+        <div id="status-text" style="color:yellow; margin: 10px;">Connecting...</div>
+        <div id="player-box">
+            <div id="player"></div>
+            <div id="blocker"></div> 
+        </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="https://www.youtube.com/iframe_api"></script>
+    
+    <script>
+        var socket = io();
+        var player;
+        var myRole = '';
+        var myName = '';
+        var latestState = {};
+        var isPlayerReady = false;
+
+        // --- SETUP & LOGIN ---
+        function joinAs(role) {
+            var nameInput = document.getElementById('username').value;
+            if(!nameInput) { alert("Please enter a name!"); return; }
+            
+            myName = nameInput;
+            myRole = role;
+            
+            document.getElementById('login-screen').style.display = 'none';
+
+            if(role === 'admin') {
+                document.getElementById('admin-panel').style.display = 'block';
+                document.getElementById('player-container').style.display = 'block'; // Admin needs player to keep time
+                document.getElementById('blocker').style.display = 'none';
+                
+                // Admin nijer nam register koruk (optional)
+                socket.emit('join_user', myName + " (Admin)");
+            } else {
+                // USER
+                document.getElementById('player-container').style.display = 'block';
+                document.getElementById('blocker').style.display = 'block'; // Block interaction
+                
+                socket.emit('join_user', myName); // Register to server
+                startBackgroundAudio(); // Android Hack
+                
+                // Auto start attempt
+                setTimeout(() => { if(isPlayerReady) perfectSync(); }, 1500);
+            }
+        }
+
+        function startBackgroundAudio() {
+            var ctx = new (window.AudioContext || window.webkitAudioContext)();
+            var osc = ctx.createOscillator();
+            var gain = ctx.createGain();
+            gain.gain.value = 0.0001; 
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.start();
+        }
+
+        // --- YOUTUBE API ---
+        function onYouTubeIframeAPIReady() {
+            player = new YT.Player('player', {
+                height: '100%', width: '100%', videoId: '',
+                playerVars: { 'playsinline': 1, 'controls': 1, 'rel': 0 },
+                events: { 
+                    'onReady': onPlayerReady,
+                    'onStateChange': onPlayerStateChange
+                }
+            });
+        }
+
+        function onPlayerReady(event) {
+            isPlayerReady = true;
+            if(myRole === 'user') document.getElementById("status-text").innerText = "Ready. Waiting for DJ...";
+        }
+
+        // --- ADMIN: RENDER USER LIST ---
+        socket.on('user_list_update', (users) => {
+            if(myRole !== 'admin') return; // Only admin sees list
+
+            var listDiv = document.getElementById('user-list');
+            listDiv.innerHTML = ""; // Clear list
+
+            for (var socketId in users) {
+                // Don't show myself in the control list
+                if(socketId === socket.id) continue;
+
+                var name = users[socketId];
+                
+                // HTML for User Card
+                var card = `
+                    <div class="user-card">
+                        <div class="user-header">
+                            <span>👤 ${name}</span>
+                            <button class="mini-btn btn-sync" onclick="forceUserSync('${socketId}')">⚡ FIX SYNC</button>
+                        </div>
+                        <div class="controls-row">
+                            <span>Vol:</span>
+                            <input type="range" min="0" max="100" value="100" oninput="changeUserVolume('${socketId}', this.value)">
+                        </div>
+                    </div>
+                `;
+                listDiv.innerHTML += card;
+            }
+        });
+
+        // --- ADMIN CONTROLS ---
+        function changeVideo() {
+            var url = document.getElementById('urlInput').value;
+            var id = url.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/);
+            if(id) socket.emit('admin_change_video', id[1]);
+        }
+
+        function forceUserSync(targetId) {
+            socket.emit('admin_force_sync_user', targetId);
+            alert("Sent sync command!");
+        }
+
+        function changeUserVolume(targetId, val) {
+            socket.emit('admin_volume_control', { targetId: targetId, volume: val });
+        }
+
+        function onPlayerStateChange(event) {
+            if (myRole !== 'admin') return;
+            var state = {
+                isPlaying: (event.data == YT.PlayerState.PLAYING),
+                videoTime: player.getCurrentTime()
+            };
+            socket.emit('admin_update', state);
+        }
+
+        // --- USER LOGIC (Receiving Commands) ---
+        
+        // 1. Video Change
+        socket.on('force_change_video', (id) => {
+            if(player && player.loadVideoById) player.loadVideoById(id);
+        });
+
+        // 2. State Update
+        socket.on('server_update', (state) => {
+            latestState = state;
+            if(myRole === 'user' && isPlayerReady && state.isPlaying) {
+                 // Auto sync logic (Basic)
+                 if(player.getPlayerState() !== YT.PlayerState.PLAYING) {
+                     perfectSync();
+                 }
+            }
+        });
+
+        // 3. REMOTE SYNC COMMAND (From Admin)
+        socket.on('trigger_sync', () => {
+            if(myRole === 'user') {
+                document.getElementById("status-text").innerText = "DJ is fixing your sync...";
+                perfectSync(); // Call the magic function
+            }
+        });
+
+        // 4. REMOTE VOLUME COMMAND (From Admin)
+        socket.on('set_volume', (vol) => {
+            if(player && player.setVolume) {
+                player.setVolume(vol);
+                document.getElementById("status-text").innerText = "Volume set to " + vol + "% by DJ";
+            }
+        });
+
+        // --- SYNC CALCULATION ---
+        function calculateAdminTime() {
+            if(!latestState.lastServerTime) return 0;
+            var timePassed = (Date.now() - latestState.lastServerTime) / 1000;
+            if(latestState.isPlaying) {
+                return latestState.lastVideoTime + timePassed; 
+            } else {
+                return latestState.lastVideoTime;
+            }
+        }
+
+        function perfectSync() {
+            if(!player || !latestState) return;
+            var currentAdminTime = calculateAdminTime();
+            var targetTime = latestState.isPlaying ? (currentAdminTime + 2.5) : currentAdminTime;
+
+            player.seekTo(targetTime, true);
+            if(latestState.isPlaying) player.playVideo();
+            else player.pauseVideo();
+        }
+
+    </script>
+</body>
+</html>
