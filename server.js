@@ -11,10 +11,12 @@ let users = {};
 
 io.on('connection', (socket) => {
     
-    // User Join
+    // 1. Initial Sync Handshake
     socket.on('join', (data) => {
         users[socket.id] = { name: data.name, role: data.role };
         io.emit('user_update', users);
+        // Send server time immediately for clock sync
+        socket.emit('clock_sync', { serverTime: Date.now() });
     });
 
     socket.on('disconnect', () => {
@@ -22,27 +24,26 @@ io.on('connection', (socket) => {
         io.emit('user_update', users);
     });
 
-    // === 🚀 FUTURE LAUNCH ENGINE ===
-    
-    // 1. Admin requests to Play
+    // 2. PROFESSIONAL LAUNCH PROTOCOL
     socket.on('request_play', (currentVideoTime) => {
-        // Calculate Future Time (Now + 1.5 Seconds buffer)
-        // 1.5s is enough to cover the 0.7s lag
-        let launchTimestamp = Date.now() + 1500; 
+        // Target: Play exactly 2000ms from NOW
+        const now = Date.now();
+        const targetTime = now + 2000; 
 
         io.emit('execute_launch', {
             seekTo: currentVideoTime,
-            launchAt: launchTimestamp
+            serverTarget: targetTime // When the server wants everyone to be playing
         });
     });
 
-    // 2. Admin Pauses
     socket.on('request_pause', (time) => {
         io.emit('execute_pause', time);
     });
 
-    // 3. Sync Pulse (Keep checking drift)
-    socket.on('admin_signal', (data) => {
+    // 3. Continuous Sync Heartbeat
+    socket.on('admin_heartbeat', (data) => {
+        // Add server timestamp for drift calculation
+        data.serverTimestamp = Date.now();
         socket.broadcast.emit('sync_pulse', data);
     });
 
@@ -51,4 +52,4 @@ io.on('connection', (socket) => {
 });
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => { console.log("Zero Latency Server Running"); });
+server.listen(PORT, () => { console.log("Precision Sync Server Running"); });
