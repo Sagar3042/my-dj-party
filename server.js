@@ -3,44 +3,50 @@ const app = express();
 const http = require('http');
 const server = http.createServer(app);
 const { Server } = require("socket.io");
-const io = new Server(server);
+const io = new Server(server, {
+    cors: { origin: "*" } // Better connectivity
+});
 
 app.get('/', (req, res) => {
   res.sendFile(__dirname + '/index.html');
 });
 
-let currentVideoID = null; 
-let users = {}; 
+let currentVideoID = null;
+let hostCurrentTime = 0;
+let lastHostUpdate = Date.now();
 
 io.on('connection', (socket) => {
   
   socket.on('join_user', (name) => {
-    users[socket.id] = { 
-        id: socket.id, 
-        name: name, 
-        offset: 0, 
-        volume: 100,
-        lastKnownTime: 0 
-    };
+    socket.userData = { name: name, drift: 0, status: 'Synced' };
     
-    // ১. ভিডিও চললে আইডি দাও
+    // Send current video if playing
     if (currentVideoID) {
         socket.emit('change_video', currentVideoID);
-        // ২. অ্যাডমিনকে বলো আর্জেন্ট টাইম আপডেট পাঠাতে (নতুন ইউজারের জন্য)
-        io.emit('admin_request_time'); 
+        // Calculate estimated current time based on last update
+        let estimatedTime = hostCurrentTime + ((Date.now() - lastHostUpdate) / 1000);
+        socket.emit('force_sync', { time: estimatedTime, type: 'seek' });
     }
-    
-    io.emit('update_user_list', Object.values(users));
+    broadcastUserList();
   });
 
   socket.on('disconnect', () => {
-    delete users[socket.id];
-    io.emit('update_user_list', Object.values(users));
+    broadcastUserList();
   });
 
-  socket.on('report_user_time', (time) => {
-    if(users[socket.id]) {
-        users[socket.id].lastKnownTime = time;
+  // Host sends time every second
+  socket.on('host_time_update', (time) => {
+    hostCurrentTime = time;
+    lastHostUpdate = Date.now();
+    // Broadcast accurate server time to all clients
+    socket.broadcast.emit('server_time_pulse', { time: time, timestamp: Date.now() });
+  });
+
+  // Client reports their lag/drift status
+  socket.on('report_status', (data) => {
+    if(socket.userData) {
+        socket.userData.drift = data.drift;
+        socket.userData.status = data.status;
     }
   });
 
@@ -50,29 +56,39 @@ io.on('connection', (socket) => {
 
   socket.on('change_video', (newID) => {
     currentVideoID = newID;
+    hostCurrentTime = 0;
     io.emit('change_video', newID);
   });
 
-  socket.on('time_update', (msg) => {
-    // এই টাইম আপডেট সবার কাছে পাঠাও
-    socket.broadcast.emit('time_update', msg);
-  });
-
-  socket.on('admin_action', (data) => {
-    const targetSocket = data.targetID;
-    if(targetSocket === 'all') {
-        io.emit('force_client_update', data);
+  socket.on('admin_command', (data) => {
+    if(data.target === 'all') {
+        io.emit('perform_command', data);
     } else {
-        io.to(targetSocket).emit('force_client_update', data);
+        io.to(data.target).emit('perform_command', data);
     }
   });
 });
 
-// লাইভ মনিটরিং লুপ
+// Update Admin Dashboard every second
 setInterval(() => {
-    io.emit('update_user_list', Object.values(users));
+    broadcastUserList();
 }, 1000);
 
+function broadcastUserList() {
+    let users = [];
+    io.sockets.sockets.forEach((socket) => {
+        if(socket.userData) {
+            users.push({ 
+                id: socket.id, 
+                name: socket.userData.name,
+                drift: socket.userData.drift,
+                status: socket.userData.status
+            });
+        }
+    });
+    io.emit('update_dashboard', users);
+}
+
 server.listen(3000, () => {
-  console.log('Server running on port 3000');
+  console.log('🚀 High Performance Server Ready on 3000');
 });
