@@ -1,67 +1,87 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>DJ Admin Panel</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Audio Surround Party</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <style>
-        body { background-color: #121212; color: white; font-family: monospace; text-align: center; margin: 0; }
+        body { background-color: #050505; color: white; font-family: 'Segoe UI', monospace; text-align: center; margin: 0; overflow: hidden; }
         
-        /* LOGIN SCREEN */
+        /* LOGIN */
         #login-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 99; display: flex; flex-direction: column; justify-content: center; align-items: center; }
-        input.name-input { padding: 15px; width: 70%; max-width: 300px; margin-bottom: 20px; border-radius: 5px; border: 1px solid #444; background: #222; color: white; text-align: center; font-size: 18px; }
-        .role-btn { padding: 20px 30px; margin: 10px; font-size: 18px; border-radius: 10px; border: none; cursor: pointer; width: 80%; max-width: 300px; font-weight: bold; }
+        input.name-input { padding: 15px; width: 70%; border-radius: 50px; border: 1px solid #333; background: #111; color: cyan; text-align: center; font-size: 18px; outline: none; margin-bottom: 20px; }
+        .role-btn { padding: 15px 30px; margin: 10px; font-size: 18px; border-radius: 30px; border: none; cursor: pointer; width: 80%; font-weight: bold; }
         
-        /* ADMIN DASHBOARD */
-        .dashboard { display: none; padding: 20px; text-align: left; }
-        .user-card { background: #222; padding: 10px; margin-bottom: 10px; border-radius: 8px; border: 1px solid #333; display: flex; flex-direction: column; gap: 10px; }
-        .user-header { display: flex; justify-content: space-between; font-weight: bold; color: cyan; }
-        .controls-row { display: flex; gap: 10px; align-items: center; }
+        /* ADMIN UI */
+        #admin-panel { display: none; height: 100vh; overflow-y: auto; padding-bottom: 50px; }
+        .user-card { background: #1a1a1a; padding: 10px; margin: 5px auto; width: 90%; border-radius: 10px; border-left: 4px solid cyan; text-align: left; display: flex; justify-content: space-between; align-items: center; }
+        select { background: #333; color: white; border: none; padding: 5px; border-radius: 5px; }
+
+        /* JOYSTICK AREA */
+        #joystick-container {
+            width: 250px; height: 250px; background: radial-gradient(circle, #222 0%, #000 100%);
+            border: 2px solid #444; border-radius: 50%; margin: 20px auto;
+            position: relative; touch-action: none; /* Important for drag */
+            box-shadow: 0 0 20px rgba(0, 255, 255, 0.2);
+        }
+        #joystick-knob {
+            width: 60px; height: 60px; background: rgba(0, 255, 255, 0.8);
+            border-radius: 50%; position: absolute; top: 50%; left: 50%;
+            transform: translate(-50%, -50%); cursor: pointer;
+            box-shadow: 0 0 15px cyan;
+        }
+        .label { position: absolute; color: #555; font-size: 10px; }
         
-        /* Controls */
-        input[type=range] { width: 100%; }
-        button.mini-btn { padding: 5px 10px; border: none; border-radius: 4px; cursor: pointer; color: white; font-weight: bold; }
-        .btn-sync { background: #ff0055; }
-        .btn-vol { background: #007bff; }
+        /* USER UI */
+        #user-view { display: none; padding-top: 50px; }
+        .pos-display { font-size: 24px; color: cyan; margin: 20px; border: 2px dashed #444; padding: 20px; border-radius: 10px; }
+        .vol-display { font-size: 40px; font-weight: bold; margin-top: 20px; }
 
-        /* PLAYER (Hidden for Admin mostly, visible for user) */
-        #player-box { position: relative; padding-bottom: 56.25%; height: 0; border: 2px solid #333; margin-top: 10px; }
-        iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
-        #blocker { position: absolute; top:0; left:0; width:100%; height:100%; z-index:10; display:none; }
-
-        /* Admin Input Area */
-        .admin-inputs { background: #1a1a1a; padding: 15px; margin-bottom: 20px; border-radius: 10px; }
-        .url-input { padding: 10px; width: 60%; background: #333; color: white; border: none; }
+        /* PLAYER HIDDEN BUT ACTIVE */
+        #player-box { position: relative; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
     </style>
 </head>
 <body>
 
     <div id="login-screen">
-        <h1 style="color:white;">DJ Connect</h1>
-        <input type="text" id="username" class="name-input" placeholder="Enter Your Name">
-        <button class="role-btn" style="background:#dc3545; color:white;" onclick="joinAs('admin')">👑 I am ADMIN</button>
-        <button class="role-btn" style="background:#28a745; color:white;" onclick="joinAs('user')">🎧 I am LISTENER</button>
+        <h1 style="color:cyan; text-shadow: 0 0 10px cyan;">3D SURROUND SYSTEM</h1>
+        <input type="text" id="username" class="name-input" placeholder="Enter Device Name (e.g. Speaker 1)">
+        <button class="role-btn" style="background:#ff0055; color:white;" onclick="joinAs('admin')">🎛️ DJ ADMIN</button>
+        <button class="role-btn" style="background:#007bff; color:white;" onclick="joinAs('user')">🔊 SPEAKER MODE</button>
     </div>
 
-    <div id="admin-panel" class="dashboard">
-        <h2>🎛️ Control Panel</h2>
+    <div id="admin-panel">
+        <div style="padding: 15px;">
+            <input type="text" id="urlInput" placeholder="Paste Song Link..." style="width:60%; padding:10px; border-radius:5px; border:none;">
+            <button onclick="changeVideo()" style="padding:10px;">Play</button>
+        </div>
+
+        <div id="joystick-container">
+            <div class="label" style="top:10px; left:50%; transform:translateX(-50%);">FRONT</div>
+            <div class="label" style="bottom:10px; left:50%; transform:translateX(-50%);">REAR</div>
+            <div class="label" style="left:10px; top:50%; transform:translateY(-50%);">LEFT</div>
+            <div class="label" style="right:10px; top:50%; transform:translateY(-50%);">RIGHT</div>
+            <div id="joystick-knob"></div>
+        </div>
+        <p style="color:#777; font-size:12px;">Drag blue dot to move sound</p>
+
+        <h3>Connected Speakers:</h3>
+        <div id="user-list"></div>
+    </div>
+
+    <div id="user-view">
+        <h1>SPEAKER ACTIVE</h1>
+        <p>Place this device at:</p>
+        <div class="pos-display" id="my-position">WAITING FOR DJ...</div>
         
-        <div class="admin-inputs">
-            <input type="text" id="urlInput" class="url-input" placeholder="Paste YouTube Link...">
-            <button class="mini-btn btn-vol" onclick="changeVideo()" style="padding: 10px;">Play Video</button>
-        </div>
+        <div class="vol-display" id="vol-text">50%</div>
+        <p>Volume Level</p>
 
-        <h3>Active Listeners:</h3>
-        <div id="user-list">
-            </div>
+        <button onclick="perfectSync()" style="margin-top:30px; background:#333; color:white; border:none; padding:10px 20px; border-radius:20px;">
+            ⚡ Force Sync
+        </button>
     </div>
 
-    <div id="player-container" style="display:none;">
-        <div id="status-text" style="color:yellow; margin: 10px;">Connecting...</div>
-        <div id="player-box">
-            <div id="player"></div>
-            <div id="blocker"></div> 
-        </div>
-    </div>
+    <div id="player-box"><div id="player"></div></div>
 
     <script src="/socket.io/socket.io.js"></script>
     <script src="https://www.youtube.com/iframe_api"></script>
@@ -70,41 +90,29 @@
         var socket = io();
         var player;
         var myRole = '';
-        var myName = '';
         var latestState = {};
-        var isPlayerReady = false;
 
-        // --- SETUP & LOGIN ---
+        // --- LOGIN ---
         function joinAs(role) {
-            var nameInput = document.getElementById('username').value;
-            if(!nameInput) { alert("Please enter a name!"); return; }
-            
-            myName = nameInput;
+            var name = document.getElementById('username').value || "Speaker " + Math.floor(Math.random()*100);
             myRole = role;
-            
             document.getElementById('login-screen').style.display = 'none';
 
             if(role === 'admin') {
                 document.getElementById('admin-panel').style.display = 'block';
-                document.getElementById('player-container').style.display = 'block'; // Admin needs player to keep time
-                document.getElementById('blocker').style.display = 'none';
-                
-                // Admin nijer nam register koruk (optional)
-                socket.emit('join_user', myName + " (Admin)");
+                setupJoystick();
             } else {
-                // USER
-                document.getElementById('player-container').style.display = 'block';
-                document.getElementById('blocker').style.display = 'block'; // Block interaction
+                document.getElementById('user-view').style.display = 'block';
+                startAudioUnlock();
+                socket.emit('join_user', name);
                 
-                socket.emit('join_user', myName); // Register to server
-                startBackgroundAudio(); // Android Hack
-                
-                // Auto start attempt
-                setTimeout(() => { if(isPlayerReady) perfectSync(); }, 1500);
+                // Auto sync start
+                setTimeout(() => { if(player) perfectSync(); }, 2000);
             }
         }
 
-        function startBackgroundAudio() {
+        // --- AUDIO UNLOCK ---
+        function startAudioUnlock() {
             var ctx = new (window.AudioContext || window.webkitAudioContext)();
             var osc = ctx.createOscillator();
             var gain = ctx.createGain();
@@ -118,129 +126,152 @@
         function onYouTubeIframeAPIReady() {
             player = new YT.Player('player', {
                 height: '100%', width: '100%', videoId: '',
-                playerVars: { 'playsinline': 1, 'controls': 1, 'rel': 0 },
+                playerVars: { 'playsinline': 1, 'controls': 0 }, // Controls hidden
                 events: { 
-                    'onReady': onPlayerReady,
-                    'onStateChange': onPlayerStateChange
+                    'onStateChange': (e) => {
+                        if(myRole === 'admin') {
+                            var state = { isPlaying: (e.data == 1), videoTime: player.getCurrentTime() };
+                            socket.emit('admin_update', state);
+                        }
+                    }
                 }
             });
         }
 
-        function onPlayerReady(event) {
-            isPlayerReady = true;
-            if(myRole === 'user') document.getElementById("status-text").innerText = "Ready. Waiting for DJ...";
+        // --- ADMIN: JOYSTICK LOGIC ---
+        function setupJoystick() {
+            const container = document.getElementById('joystick-container');
+            const knob = document.getElementById('joystick-knob');
+            let isDragging = false;
+            const radius = container.offsetWidth / 2;
+
+            function handleMove(clientX, clientY) {
+                const rect = container.getBoundingClientRect();
+                const centerX = rect.left + radius;
+                const centerY = rect.top + radius;
+
+                let deltaX = clientX - centerX;
+                let deltaY = clientY - centerY; // Y-axis inverted in CSS (Top is 0) but math is standard
+                
+                // Limit distance
+                const distance = Math.sqrt(deltaX*deltaX + deltaY*deltaY);
+                const maxDist = radius - 30; // 30 is knob radius
+                
+                if(distance > maxDist) {
+                    const angle = Math.atan2(deltaY, deltaX);
+                    deltaX = Math.cos(angle) * maxDist;
+                    deltaY = Math.sin(angle) * maxDist;
+                }
+
+                // Move Knob
+                knob.style.transform = `translate(${deltaX - 30}px, ${deltaY - 30}px)`; // -30 to center knob
+
+                // Normalize (-1 to 1) for Server
+                // Note: CSS Y grows downwards, but usually "Front" implies Y=1. 
+                // Let's map: Top(Front) = 1, Bottom(Rear) = -1
+                let normX = deltaX / maxDist; 
+                let normY = -(deltaY / maxDist); // Invert Y so Up is positive
+
+                socket.emit('joystick_move', { x: normX, y: normY });
+            }
+
+            // Mouse Events
+            knob.addEventListener('mousedown', () => isDragging = true);
+            document.addEventListener('mouseup', () => {
+                isDragging = false;
+                // Auto center on release (Optional) - lets keep it there for effect
+                // knob.style.transform = `translate(-50%, -50%)`;
+                // socket.emit('joystick_move', { x: 0, y: 0 });
+            });
+            document.addEventListener('mousemove', (e) => { if(isDragging) handleMove(e.clientX, e.clientY); });
+
+            // Touch Events
+            knob.addEventListener('touchstart', (e) => { isDragging = true; e.preventDefault(); });
+            document.addEventListener('touchend', () => isDragging = false);
+            document.addEventListener('touchmove', (e) => {
+                if(isDragging) handleMove(e.touches[0].clientX, e.touches[0].clientY);
+            });
         }
 
-        // --- ADMIN: RENDER USER LIST ---
+        // --- ADMIN: USER LIST & ASSIGNMENT ---
         socket.on('user_list_update', (users) => {
-            if(myRole !== 'admin') return; // Only admin sees list
+            if(myRole !== 'admin') return;
+            
+            const list = document.getElementById('user-list');
+            list.innerHTML = "";
 
-            var listDiv = document.getElementById('user-list');
-            listDiv.innerHTML = ""; // Clear list
-
-            for (var socketId in users) {
-                // Don't show myself in the control list
-                if(socketId === socket.id) continue;
-
-                var name = users[socketId];
+            for(let id in users) {
+                if(id === socket.id) continue;
+                let u = users[id];
                 
-                // HTML for User Card
-                var card = `
-                    <div class="user-card">
-                        <div class="user-header">
-                            <span>👤 ${name}</span>
-                            <button class="mini-btn btn-sync" onclick="forceUserSync('${socketId}')">⚡ FIX SYNC</button>
-                        </div>
-                        <div class="controls-row">
-                            <span>Vol:</span>
-                            <input type="range" min="0" max="100" value="100" oninput="changeUserVolume('${socketId}', this.value)">
-                        </div>
+                let html = `
+                <div class="user-card">
+                    <div>
+                        <strong>${u.name}</strong><br>
+                        <small style="color:#aaa">Current: ${u.position.label}</small>
                     </div>
-                `;
-                listDiv.innerHTML += card;
+                    <div>
+                        <select onchange="assignPos('${id}', this.value)">
+                            <option value="c" ${u.posKey=='c'?'selected':''}>Center ⏺</option>
+                            <option value="fl" ${u.posKey=='fl'?'selected':''}>Front Left ◤</option>
+                            <option value="fr" ${u.posKey=='fr'?'selected':''}>Front Right ◥</option>
+                            <option value="rl" ${u.posKey=='rl'?'selected':''}>Rear Left ◣</option>
+                            <option value="rr" ${u.posKey=='rr'?'selected':''}>Rear Right ◢</option>
+                        </select>
+                        <button onclick="socket.emit('admin_force_sync_user', '${id}')" style="background:#444; color:white; border:none; border-radius:5px; margin-left:5px;">↻</button>
+                    </div>
+                </div>`;
+                list.innerHTML += html;
             }
         });
 
-        // --- ADMIN CONTROLS ---
+        function assignPos(id, val) {
+            socket.emit('admin_assign_pos', { targetId: id, posKey: val });
+        }
+        
         function changeVideo() {
             var url = document.getElementById('urlInput').value;
             var id = url.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/);
             if(id) socket.emit('admin_change_video', id[1]);
         }
 
-        function forceUserSync(targetId) {
-            socket.emit('admin_force_sync_user', targetId);
-            alert("Sent sync command!");
-        }
-
-        function changeUserVolume(targetId, val) {
-            socket.emit('admin_volume_control', { targetId: targetId, volume: val });
-        }
-
-        function onPlayerStateChange(event) {
-            if (myRole !== 'admin') return;
-            var state = {
-                isPlaying: (event.data == YT.PlayerState.PLAYING),
-                videoTime: player.getCurrentTime()
-            };
-            socket.emit('admin_update', state);
-        }
-
-        // --- USER LOGIC (Receiving Commands) ---
-        
-        // 1. Video Change
-        socket.on('force_change_video', (id) => {
-            if(player && player.loadVideoById) player.loadVideoById(id);
-        });
-
-        // 2. State Update
-        socket.on('server_update', (state) => {
-            latestState = state;
-            if(myRole === 'user' && isPlayerReady && state.isPlaying) {
-                 // Auto sync logic (Basic)
-                 if(player.getPlayerState() !== YT.PlayerState.PLAYING) {
-                     perfectSync();
-                 }
-            }
-        });
-
-        // 3. REMOTE SYNC COMMAND (From Admin)
-        socket.on('trigger_sync', () => {
+        // --- USER LOGIC ---
+        socket.on('position_update', (label) => {
             if(myRole === 'user') {
-                document.getElementById("status-text").innerText = "DJ is fixing your sync...";
-                perfectSync(); // Call the magic function
+                document.getElementById('my-position').innerText = label;
+                document.getElementById('my-position').style.animation = "pulse 0.5s";
             }
         });
 
-        // 4. REMOTE VOLUME COMMAND (From Admin)
         socket.on('set_volume', (vol) => {
             if(player && player.setVolume) {
                 player.setVolume(vol);
-                document.getElementById("status-text").innerText = "Volume set to " + vol + "% by DJ";
+                document.getElementById('vol-text').innerText = vol + "%";
+                // Visual feedback opacity
+                document.getElementById('vol-text').style.opacity = (vol/100) + 0.3;
             }
         });
 
-        // --- SYNC CALCULATION ---
-        function calculateAdminTime() {
-            if(!latestState.lastServerTime) return 0;
-            var timePassed = (Date.now() - latestState.lastServerTime) / 1000;
-            if(latestState.isPlaying) {
-                return latestState.lastVideoTime + timePassed; 
-            } else {
-                return latestState.lastVideoTime;
+        socket.on('force_change_video', (id) => { if(player) player.loadVideoById(id); });
+        
+        socket.on('server_update', (state) => {
+            latestState = state;
+            if(myRole === 'user' && state.isPlaying) {
+                if(player.getPlayerState() !== 1) perfectSync();
             }
-        }
+        });
+
+        socket.on('trigger_sync', () => { if(myRole === 'user') perfectSync(); });
 
         function perfectSync() {
             if(!player || !latestState) return;
-            var currentAdminTime = calculateAdminTime();
-            var targetTime = latestState.isPlaying ? (currentAdminTime + 2.5) : currentAdminTime;
-
-            player.seekTo(targetTime, true);
+            var timePassed = (Date.now() - latestState.lastServerTime) / 1000;
+            var target = latestState.isPlaying ? (latestState.lastVideoTime + timePassed + 2.5) : latestState.lastVideoTime;
+            
+            player.seekTo(target, true);
             if(latestState.isPlaying) player.playVideo();
             else player.pauseVideo();
         }
-
     </script>
 </body>
 </html>
