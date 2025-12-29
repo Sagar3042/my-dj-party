@@ -22,16 +22,33 @@ io.on('connection', (socket) => {
         io.emit('user_update', users);
     });
 
-    // === HEARTBEAT SYNC (High Frequency) ===
+    // === 🚀 FUTURE LAUNCH ENGINE ===
+    
+    // 1. Admin requests to Play
+    socket.on('request_play', (currentVideoTime) => {
+        // Calculate Future Time (Now + 1.5 Seconds buffer)
+        // 1.5s is enough to cover the 0.7s lag
+        let launchTimestamp = Date.now() + 1500; 
+
+        io.emit('execute_launch', {
+            seekTo: currentVideoTime,
+            launchAt: launchTimestamp
+        });
+    });
+
+    // 2. Admin Pauses
+    socket.on('request_pause', (time) => {
+        io.emit('execute_pause', time);
+    });
+
+    // 3. Sync Pulse (Keep checking drift)
     socket.on('admin_signal', (data) => {
-        // data = { time: 10.5, isPlaying: true, timestamp: 123456789 }
         socket.broadcast.emit('sync_pulse', data);
     });
 
-    // Control Commands
     socket.on('change_track', (id) => io.emit('load_track', id));
     socket.on('admin_joystick', (data) => socket.broadcast.emit('vol_adjust', data));
 });
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => { console.log("Speed Sync Engine Running"); });
+server.listen(PORT, () => { console.log("Zero Latency Server Running"); });

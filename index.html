@@ -3,77 +3,84 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Perfect Speed Sync</title>
+    <title>Zero Latency Player</title>
     <link href="https://fonts.googleapis.com/css2?family=Teko:wght@400;600&display=swap" rel="stylesheet">
     <style>
-        :root { --main: #00ff88; --bg: #050505; --panel: #111; }
+        :root { --main: #00ffcc; --bg: #0a0a0a; --panel: #141414; --danger: #ff0055; }
         body { background: var(--bg); color: white; font-family: 'Teko', sans-serif; margin: 0; overflow: hidden; }
         
         .hidden { display: none !important; }
         .flex-c { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; }
 
         /* LOGIN */
-        #login { position: fixed; z-index: 10; background: rgba(0,0,0,0.95); width: 100%; }
-        input { background: #222; border: 1px solid #444; color: var(--main); padding: 10px; font-size: 1.2rem; text-align: center; margin: 10px; width: 60%; }
-        button { background: var(--main); color: black; border: none; padding: 10px 30px; font-size: 1.5rem; font-weight: bold; cursor: pointer; margin: 5px; clip-path: polygon(10% 0, 100% 0, 100% 80%, 90% 100%, 0 100%, 0 20%); }
+        #login { position: fixed; z-index: 10; background: rgba(0,0,0,0.95); width: 100%; height: 100%; top:0; left:0; }
+        input { background: #222; border: 1px solid #444; color: var(--main); padding: 15px; font-size: 1.5rem; text-align: center; margin: 10px; width: 70%; border-radius: 10px; }
+        button { background: var(--main); color: black; border: none; padding: 15px 40px; font-size: 1.8rem; font-weight: bold; cursor: pointer; margin: 10px; clip-path: polygon(10% 0, 100% 0, 100% 80%, 90% 100%, 0 100%, 0 20%); transition: 0.2s; }
         button:active { transform: scale(0.95); }
 
         /* ADMIN UI */
-        #admin-view { padding: 20px; display: grid; grid-template-rows: auto 1fr auto; height: 100vh; box-sizing: border-box; }
-        .deck { background: var(--panel); padding: 15px; border: 1px solid #333; margin-bottom: 10px; }
+        #admin-view { padding: 10px; display: grid; grid-template-rows: auto 1fr auto; height: 100vh; box-sizing: border-box; }
+        .deck { background: var(--panel); padding: 15px; border: 1px solid #333; margin-bottom: 10px; border-radius: 10px; }
         
         /* USER UI */
         #user-view { text-align: center; }
-        .status-big { font-size: 4rem; margin: 0; line-height: 1; color: var(--main); text-shadow: 0 0 20px var(--main); }
-        .sync-mode { font-size: 1.2rem; color: #aaa; margin-top: 10px; font-family: sans-serif; }
+        .status-big { font-size: 5rem; margin: 0; line-height: 1; color: var(--main); text-shadow: 0 0 30px var(--main); }
+        .sync-mode { font-size: 1.5rem; color: #aaa; margin-top: 10px; letter-spacing: 2px; }
         
         /* JOYSTICK */
-        .joy-area { width: 200px; height: 200px; border: 2px solid #333; border-radius: 50%; margin: 20px auto; position: relative; background: #080808; }
-        .knob { width: 60px; height: 60px; background: var(--main); border-radius: 50%; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); box-shadow: 0 0 15px var(--main); }
+        .joy-area { width: 180px; height: 180px; border: 2px solid #333; border-radius: 50%; margin: 10px auto; position: relative; background: #000; }
+        .knob { width: 50px; height: 50px; background: var(--main); border-radius: 50%; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); box-shadow: 0 0 20px var(--main); }
 
         /* USER LIST */
         .user-list { max-height: 200px; overflow-y: auto; text-align: left; }
-        .user-item { padding: 5px; border-bottom: 1px solid #222; color: #888; }
+        .user-item { padding: 8px; border-bottom: 1px solid #222; color: #ccc; font-size: 1.2rem; display: flex; justify-content: space-between; }
+        .fix-btn { background: var(--danger); color: white; border: none; font-size: 1rem; padding: 2px 10px; clip-path: none; border-radius: 4px; }
 
         #player-wrapper { position: absolute; top: -2000px; opacity: 0; pointer-events: none; }
+        
+        /* COUNTDOWN OVERLAY */
+        #countdown { position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:99; display:flex; justify-content:center; align-items:center; font-size:10rem; color:white; pointer-events:none; }
     </style>
 </head>
 <body>
 
     <div id="login" class="flex-c">
-        <h1 style="font-size:3rem; margin:0;">SPEED <span style="color:var(--main)">SYNC</span></h1>
+        <h1 style="font-size:4rem; margin:0;">ZERO <span style="color:var(--main)">LATENCY</span></h1>
         <input id="uName" placeholder="Enter Name">
-        <button onclick="start('admin')">DJ MODE</button>
+        <button onclick="start('admin')">DJ CONSOLE</button>
         <button onclick="start('user')" style="background:#00aaff; color:white;">LISTENER</button>
     </div>
 
     <div id="admin-view" class="hidden">
         <div class="deck">
-            <input id="yLink" placeholder="YouTube Link" style="width:60%;">
-            <button onclick="load()" style="font-size:1rem;">LOAD</button>
-            <div style="margin-top:10px; display:flex; justify-content:space-between;">
-                <button onclick="toggle()" style="width:48%">⏯ PLAY/PAUSE</button>
-                <div style="font-size:2rem; color:white;" id="admTime">0.0s</div>
+            <input id="yLink" placeholder="YouTube Link" style="width:60%; padding:10px; font-size:1rem;">
+            <button onclick="load()" style="font-size:1.2rem; padding:10px 20px;">LOAD</button>
+            <div style="margin-top:15px; display:flex; justify-content:space-between; align-items:center;">
+                <button onclick="requestPlay()" style="width:48%; background:var(--main);">▶ PLAY</button>
+                <button onclick="requestPause()" style="width:48%; background:#333; color:white;">⏸ PAUSE</button>
             </div>
+            <div style="font-size:2rem; color:white; text-align:center; margin-top:10px;" id="admTime">0.0s</div>
         </div>
         
+        <h3 style="color:#555; margin:0;">Connected Devices</h3>
         <div class="deck user-list" id="uList"></div>
 
-        <div class="joy-area" id="joyBase">
-            <div class="knob" id="joyKnob"></div>
-        </div>
+        <div class="joy-area" id="joyBase"><div class="knob" id="joyKnob"></div></div>
     </div>
 
     <div id="user-view" class="hidden flex-c">
-        <div class="status-big" id="uStatus">WAITING</div>
-        <div class="sync-mode" id="uMode">Speed: Normal</div>
+        <div class="status-big" id="uStatus">READY</div>
+        <div class="sync-mode" id="uMode">Waiting for Launch...</div>
         
-        <h2 id="volDisp" style="margin-top:50px; font-size:3rem;">100%</h2>
+        <h2 id="volDisp" style="margin-top:50px; font-size:4rem;">100%</h2>
         <p>Volume</p>
 
-        <div id="debug" style="color:#444; font-size:10px; margin-top:20px;"></div>
+        <button onclick="manualLagFix()" style="margin-top:30px; font-size:1.2rem; background:#333; color:#888;">
+            ⚠ Fix 0.7s Lag
+        </button>
     </div>
 
+    <div id="countdown" class="hidden"></div>
     <div id="player-wrapper"><div id="player"></div></div>
 
     <script src="/socket.io/socket.io.js"></script>
@@ -82,12 +89,13 @@
         const socket = io();
         let player;
         let role = '';
-        
+        let LATENCY_OFFSET = 0; // The 0.7s fix variable
+
         function start(r) {
             let name = document.getElementById('uName').value || "Guest";
             role = r;
             
-            // Audio Context Unlock
+            // Audio Unlock
             const ctx = new (window.AudioContext || window.webkitAudioContext)();
             const osc = ctx.createOscillator();
             const gain = ctx.createGain();
@@ -114,20 +122,22 @@
             });
         }
 
-        // --- ADMIN ENGINE ---
+        // --- ADMIN LOGIC ---
         function startAdminPulse() {
             setInterval(() => {
                 if(player && player.getCurrentTime) {
                     let t = player.getCurrentTime();
                     document.getElementById('admTime').innerText = t.toFixed(1) + "s";
-                    // Send High-Freq Pulse
-                    socket.emit('admin_signal', {
-                        time: t,
-                        isPlaying: (player.getPlayerState() === 1),
-                        timestamp: Date.now()
-                    });
+                    // Sync heartbeat
+                    if(player.getPlayerState() === 1) {
+                        socket.emit('admin_signal', {
+                            time: t,
+                            isPlaying: true,
+                            timestamp: Date.now()
+                        });
+                    }
                 }
-            }, 200); // 5 times per second for precision
+            }, 500);
         }
 
         function load() {
@@ -136,76 +146,96 @@
             if (url.includes("v=")) id = url.split('v=')[1].split('&')[0];
             else if (url.includes("youtu.be/")) id = url.split('youtu.be/')[1].split('?')[0];
             else if (url.length === 11) id = url;
-            
-            if(id.length===11) {
-                socket.emit('change_track', id);
-                player.loadVideoById(id);
-            }
+            if(id.length===11) socket.emit('change_track', id);
         }
-        function toggle() {
-            if(player.getPlayerState()===1) player.pauseVideo(); else player.playVideo();
+
+        // 🔥 REQUEST PLAY (Doesn't play immediately)
+        function requestPlay() {
+            if(player) socket.emit('request_play', player.getCurrentTime());
+        }
+        function requestPause() {
+            if(player) socket.emit('request_pause', player.getCurrentTime());
         }
 
         socket.on('user_update', (users) => {
             if(role!=='admin') return;
             let d = document.getElementById('uList'); d.innerHTML = "";
             for(let k in users) if(users[k].role!=='admin') 
-                d.innerHTML += `<div class="user-item">👤 ${users[k].name}</div>`;
+                d.innerHTML += `<div class="user-item"><span>👤 ${users[k].name}</span> <span style="color:var(--main)">Online</span></div>`;
         });
 
-        // --- USER ENGINE (THE SPEED LOGIC) ---
+        // --- USER LOGIC (ZERO LATENCY ENGINE) ---
         socket.on('load_track', (id) => player.loadVideoById(id));
         
+        // 🚀 THE MAGIC LAUNCHER 🚀
+        socket.on('execute_launch', (data) => {
+            // data.launchAt contains the Server Time to start
+            let now = Date.now();
+            let delay = data.launchAt - now; // Should be around 1500ms
+
+            // Apply Manual Latency Fix if user clicked the button
+            // If user has 0.7s lag, we subtract that? No, the buffer handles it.
+            // But if user wants manual offset:
+            let seekTo = data.seekTo + LATENCY_OFFSET;
+
+            document.getElementById('uStatus').innerText = "SYNCING";
+            document.getElementById('uMode').innerText = `Launching in ${(delay/1000).toFixed(1)}s...`;
+
+            // 1. Move to position
+            player.seekTo(seekTo, true);
+            player.pauseVideo(); // Hold position
+
+            // 2. Wait for exact moment
+            if(delay > 0) {
+                // Visual Countdown (Optional)
+                showCountdown(delay);
+                
+                setTimeout(() => {
+                    player.playVideo();
+                    document.getElementById('uStatus').innerText = "PLAYING";
+                    document.getElementById('uMode').innerText = "Zero Latency Mode";
+                }, delay);
+            } else {
+                // If late, just play
+                player.playVideo();
+            }
+        });
+
+        socket.on('execute_pause', (time) => {
+            player.seekTo(time, true);
+            player.pauseVideo();
+            document.getElementById('uStatus').innerText = "PAUSED";
+        });
+
+        // Drift Correction (Backup)
         socket.on('sync_pulse', (data) => {
             if(role !== 'user' || !player) return;
-
-            // 1. Calculate precise Admin time considering Network Latency
+            // Only adjust if HUGE drift occurs after launch
             let now = Date.now();
-            let networkLag = (now - data.timestamp) / 1000;
-            let targetTime = data.time + networkLag; 
-
+            let target = data.time + ((now - data.timestamp)/1000);
             let myTime = player.getCurrentTime();
-            let drift = targetTime - myTime; // Positive = I am lagging
-
-            document.getElementById('debug').innerText = `Drift: ${drift.toFixed(3)}s | Target: ${targetTime.toFixed(1)}`;
-
-            // 2. STATE SYNC
-            if(data.isPlaying) {
-                document.getElementById('uStatus').innerText = "PLAYING";
-                document.getElementById('uStatus').style.color = "var(--main)";
-                if(player.getPlayerState() !== 1 && player.getPlayerState() !== 3) player.playVideo();
-            } else {
-                document.getElementById('uStatus').innerText = "PAUSED";
-                document.getElementById('uStatus').style.color = "#777";
-                if(player.getPlayerState() === 1) player.pauseVideo();
-                // If paused, hard sync once
-                if(Math.abs(drift) > 0.5) player.seekTo(targetTime, true);
-                return; // Stop speed logic when paused
-            }
-
-            // 3. SPEED SYNC LOGIC (The Magic)
+            let drift = Math.abs(myTime - target);
             
-            // Case A: HUGE LAG (> 2s) -> Hard Jump
-            if(Math.abs(drift) > 2.0) {
-                document.getElementById('uMode').innerText = "Syncing (Hard Jump)...";
-                player.seekTo(targetTime + 0.1, true); // +0.1 for safety
-            } 
-            // Case B: SMALL LAG (0.1s to 2.0s) -> Speed Up (Catch up)
-            else if (drift > 0.15) {
-                document.getElementById('uMode').innerText = "Status: Catching Up ⏩";
-                player.setPlaybackRate(1.15); // 15% Faster
-            } 
-            // Case C: AHEAD (-0.1s to -2.0s) -> Slow Down (Wait)
-            else if (drift < -0.15) {
-                document.getElementById('uMode').innerText = "Status: Slowing Down ⏪";
-                player.setPlaybackRate(0.85); // 15% Slower
-            } 
-            // Case D: PERFECT (< 0.15s) -> Normal Speed
-            else {
-                document.getElementById('uMode').innerText = "Status: Perfect Synced 👌";
+            if(drift > 1.0) { // Only if more than 1s off
+                player.setPlaybackRate(myTime < target ? 1.1 : 0.9);
+            } else {
                 player.setPlaybackRate(1.0);
             }
         });
+
+        // --- MANUAL LAG FIX ---
+        function manualLagFix() {
+            LATENCY_OFFSET += 0.1; // Add 0.1s offset each click
+            alert(`Latency Offset set to +${LATENCY_OFFSET.toFixed(1)}s. Next time Admin plays, you will jump ahead.`);
+        }
+
+        function showCountdown(ms) {
+            let el = document.getElementById('countdown');
+            el.classList.remove('hidden');
+            el.innerText = "READY";
+            setTimeout(() => { el.innerText = "SET"; }, ms/2);
+            setTimeout(() => { el.classList.add('hidden'); }, ms);
+        }
 
         // Spatial Audio
         socket.on('vol_adjust', (d) => {
@@ -224,11 +254,11 @@
                 let cx = e.touches?e.touches[0].clientX:e.clientX;
                 let cy = e.touches?e.touches[0].clientY:e.clientY;
                 let r = pad.getBoundingClientRect();
-                let x = cx-(r.left+100), y = cy-(r.top+100);
+                let x = cx-(r.left+90), y = cy-(r.top+90);
                 let dist = Math.sqrt(x*x+y*y);
-                if(dist>70){ x=(x/dist)*70; y=(y/dist)*70; }
+                if(dist>60){ x=(x/dist)*60; y=(y/dist)*60; }
                 knob.style.transform=`translate(-50%,-50%) translate(${x}px,${y}px)`;
-                socket.emit('admin_joystick',{x:x/70, y:y/70});
+                socket.emit('admin_joystick',{x:x/60, y:y/60});
             }
             knob.addEventListener('mousedown',()=>drag=true);
             document.addEventListener('mouseup',()=>drag=false);
