@@ -9,34 +9,30 @@ app.get('/', (req, res) => {
   res.sendFile(__dirname + '/index.html');
 });
 
-// ডেটা স্টোর
-let currentVideoID = "dQw4w9WgXcQ"; 
-let users = {}; // কানেক্টেড ইউজারদের লিস্ট
+let currentVideoID = null; 
 
 io.on('connection', (socket) => {
-  console.log('A user connected:', socket.id);
+  
+  // ১. কেউ জয়েন করলে তাকে বর্তমান ভিডিও আইডি দাও
+  if(currentVideoID) {
+    socket.emit('change_video', currentVideoID);
+  }
 
-  // নতুন ইউজারকে বর্তমান ভিডিও আইডি পাঠাও
-  socket.emit('change_video', currentVideoID);
-
+  // ২. ভিডিও পরিবর্তন (শুধুমাত্র অ্যাডমিন পাঠাবে)
   socket.on('change_video', (newID) => {
     currentVideoID = newID;
     io.emit('change_video', newID);
   });
 
-  // ভিডিও কন্ট্রোল (Play/Pause/Seek)
+  // ৩. প্লে/পজ এবং সিক কন্ট্রোল
   socket.on('video_control', (msg) => {
-    // এই মেসেজটি বাকি সবাইকে পাঠাও (Broadcast)
+    // অ্যাডমিনের কমান্ড সবাইকে পাঠাও
     socket.broadcast.emit('video_control', msg);
   });
 
-  // হোস্টের টাইম আপডেট (Heartbeat)
-  socket.on('time_update', (msg) => {
-    socket.broadcast.emit('time_update', msg);
-  });
-
-  socket.on('disconnect', () => {
-    console.log('User disconnected:', socket.id);
+  // ৪. অ্যাডমিনের লাইভ টাইম আপডেট (Heartbeat)
+  socket.on('admin_time_update', (msg) => {
+    socket.broadcast.emit('server_time_sync', msg);
   });
 });
 
