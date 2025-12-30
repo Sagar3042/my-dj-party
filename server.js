@@ -3,59 +3,43 @@ const app = express();
 const http = require('http');
 const server = http.createServer(app);
 const { Server } = require("socket.io");
-const io = new Server(server, { cors: { origin: "*" } });
+const io = new Server(server);
 
 app.get('/', (req, res) => {
   res.sendFile(__dirname + '/index.html');
 });
 
-// Server State
-let currentVideoID = null;
-let hostState = {
-    time: 0,
-    isPlaying: false,
-    timestamp: Date.now()
-};
+// ডেটা স্টোর
+let currentVideoID = "dQw4w9WgXcQ"; 
+let users = {}; // কানেক্টেড ইউজারদের লিস্ট
 
 io.on('connection', (socket) => {
-    
-    // 1. নতুন ইউজার এলে তাকে বর্তমান ভিডিও এবং স্টেট দাও
-    if (currentVideoID) {
-        socket.emit('change_video', currentVideoID);
-        
-        // বর্তমান সময় ক্যালকুলেট করো
-        let timePassed = 0;
-        if(hostState.isPlaying) {
-            timePassed = (Date.now() - hostState.timestamp) / 1000;
-        }
-        let targetTime = hostState.time + timePassed;
+  console.log('A user connected:', socket.id);
 
-        socket.emit('player_update', {
-            action: hostState.isPlaying ? 'play' : 'pause',
-            time: targetTime
-        });
-    }
+  // নতুন ইউজারকে বর্তমান ভিডিও আইডি পাঠাও
+  socket.emit('change_video', currentVideoID);
 
-    // 2. অ্যাডমিন ভিডিও চেঞ্জ করলে
-    socket.on('change_video', (id) => {
-        currentVideoID = id;
-        hostState.time = 0;
-        hostState.isPlaying = true;
-        hostState.timestamp = Date.now();
-        io.emit('change_video', id);
-    });
+  socket.on('change_video', (newID) => {
+    currentVideoID = newID;
+    io.emit('change_video', newID);
+  });
 
-    // 3. অ্যাডমিন প্লে/পজ/সিক করলে
-    socket.on('video_control', (data) => {
-        hostState.isPlaying = (data.action === 'play');
-        hostState.time = data.time;
-        hostState.timestamp = Date.now();
-        
-        // বাকি সবাইকে পাঠাও
-        socket.broadcast.emit('player_update', data);
-    });
+  // ভিডিও কন্ট্রোল (Play/Pause/Seek)
+  socket.on('video_control', (msg) => {
+    // এই মেসেজটি বাকি সবাইকে পাঠাও (Broadcast)
+    socket.broadcast.emit('video_control', msg);
+  });
+
+  // হোস্টের টাইম আপডেট (Heartbeat)
+  socket.on('time_update', (msg) => {
+    socket.broadcast.emit('time_update', msg);
+  });
+
+  socket.on('disconnect', () => {
+    console.log('User disconnected:', socket.id);
+  });
 });
 
 server.listen(3000, () => {
-  console.log('Server Ready on port 3000');
+  console.log('Server running on port 3000');
 });

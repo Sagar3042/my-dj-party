@@ -1,71 +1,70 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
+    <title>Advance Party Sync</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Perfect Sync Theater</title>
     <style>
-        body { margin: 0; background: #000; color: white; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; height: 100vh; }
+        body { background-color: #0f0f0f; color: #eee; font-family: 'Segoe UI', sans-serif; margin: 0; padding: 20px; text-align: center; }
         
-        /* VIDEO CONTAINER */
-        #video-container {
-            width: 100%; max-width: 900px; aspect-ratio: 16/9; 
-            background: #111; position: relative; border: 2px solid #333; margin-top: 20px;
-        }
-        #player { width: 100%; height: 100%; position: absolute; top: 0; left: 0; }
+        /* Video Player Area */
+        #player-wrapper { position: relative; max-width: 800px; margin: 0 auto; border: 2px solid #333; box-shadow: 0 0 20px rgba(0,0,0,0.5); }
+        .video-container { position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; background: black; }
+        .video-container iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
         
-        /* CLICK BLOCKER (For Users) */
-        #user-shield {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            z-index: 10; background: transparent; display: none;
-        }
+        /* Controls */
+        .controls { margin-top: 15px; background: #1e1e1e; padding: 15px; border-radius: 8px; display: inline-block; }
+        input[type="text"] { padding: 8px; width: 250px; background: #333; border: 1px solid #444; color: white; border-radius: 4px; }
+        button { padding: 8px 15px; cursor: pointer; background: #007bff; color: white; border: none; border-radius: 4px; font-weight: bold; }
+        button:hover { background: #0056b3; }
+        
+        /* Advanced Sync Panel */
+        .sync-panel { margin-top: 20px; padding: 10px; border-top: 1px solid #333; }
+        .latency-btn { background: #444; font-size: 12px; margin: 0 2px; }
+        .latency-display { font-family: monospace; color: #ffcc00; margin: 0 10px; }
+        
+        /* Volume Control */
+        .vol-container { margin-top: 10px; display: flex; align-items: center; justify-content: center; gap: 10px; }
+        input[type=range] { cursor: pointer; }
 
-        /* START OVERLAY (Fixes Autoplay Issue) */
-        #start-overlay {
-            position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 100;
-            display: flex; flex-direction: column; justify-content: center; align-items: center;
-        }
-        .start-btn {
-            padding: 20px 40px; font-size: 20px; background: #e50914; color: white;
-            border: none; border-radius: 5px; cursor: pointer; font-weight: bold;
-            box-shadow: 0 0 20px #e50914; animation: pulse 2s infinite;
-        }
-        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
-
-        /* CONTROLS */
-        .controls { margin-top: 20px; width: 90%; max-width: 900px; text-align: center; }
-        input { padding: 10px; width: 70%; background: #222; border: 1px solid #444; color: white; }
-        button { padding: 10px 20px; cursor: pointer; background: #007bff; color: white; border: none; }
-        
-        #status-text { margin-top: 10px; color: #0f0; font-family: monospace; }
-        #admin-area { display: none; border-top: 1px solid #333; padding-top: 20px; margin-top: 20px;}
+        .status { color: #00ff00; margin-top: 10px; font-size: 14px; }
+        .big-btn { background: #dc3545; font-size: 16px; width: 100%; max-width: 300px; margin-top: 10px; }
     </style>
 </head>
 <body>
 
-    <div id="start-overlay">
-        <h1>🎥 SYNC THEATER</h1>
-        <div style="margin-bottom: 20px;">
-            <input type="text" id="username" placeholder="Enter Name..." style="width: 200px; text-align: center;">
-            <br><br>
-            <label><input type="checkbox" id="isAdmin"> I am Admin (Host)</label>
+    <h1>🎥 Ultra Sync Party</h1>
+
+    <div id="player-wrapper">
+        <div class="video-container">
+            <div id="player"></div>
         </div>
-        <button class="start-btn" onclick="enterRoom()">TAP TO START</button>
     </div>
 
-    <div id="video-container">
-        <div id="player"></div>
-        <div id="user-shield"></div> </div>
+    <div class="status" id="syncStatus">Connecting...</div>
 
     <div class="controls">
-        <div id="status-text">Waiting...</div>
-
-        <div id="admin-area">
-            <input type="text" id="videoUrl" placeholder="Paste YouTube Link Here...">
-            <button onclick="loadVideo()">PLAY VIDEO</button>
-            <br><br>
-            <button onclick="forceSync()" style="background: #e50914;">⚡ FORCE SYNC EVERYONE</button>
+        <input type="text" id="videoUrlInput" placeholder="Paste YouTube Link...">
+        <button onclick="loadNewVideo()">Load Video</button>
+        
+        <div class="vol-container">
+            <span>🔊 Vol:</span>
+            <input type="range" id="volSlider" min="0" max="100" value="100" oninput="changeVolume(this.value)">
+            <span id="volText">100%</span>
         </div>
+    </div>
+
+    <div class="sync-panel">
+        <h3>⚡ Manual Latency Fix</h3>
+        <p style="font-size: 12px; color: #aaa;">যদি সাউন্ড আগে/পরে শোনা যায়, নিচের বাটন দিয়ে ঠিক করুন:</p>
+        
+        <button class="latency-btn" onclick="adjustOffset(-0.1)">-0.1s</button>
+        <button class="latency-btn" onclick="adjustOffset(-0.05)">-0.05s</button>
+        <span class="latency-display" id="offsetDisplay">Offset: 0ms</span>
+        <button class="latency-btn" onclick="adjustOffset(0.05)">+0.05s</button>
+        <button class="latency-btn" onclick="adjustOffset(0.1)">+0.1s</button>
+        
+        <br><br>
+        <button class="big-btn" onclick="forceSync()">🔄 FORCE SYNC NOW</button>
     </div>
 
     <script src="/socket.io/socket.io.js"></script>
@@ -74,133 +73,156 @@
     <script>
         var socket = io();
         var player;
-        var isAdmin = false;
-        var isReady = false;
+        var ignoreEvent = false;
+        
+        // Sync Logic Variables
+        var lastHostTime = 0;
+        var lastPacketTime = 0;
+        var userOffset = 0; // ইউজার ম্যানুয়ালি যেটা ঠিক করবে
+        var networkLatency = 0.5; // ডিফল্ট নেটওয়ার্ক বাফার
+        var isHost = false; 
 
-        // --- 1. SETUP ---
-        function enterRoom() {
-            var name = document.getElementById('username').value || "Guest";
-            isAdmin = document.getElementById('isAdmin').checked;
-            
-            // Remove Overlay
-            document.getElementById('start-overlay').style.display = 'none';
-            
-            // Setup UI
-            if(isAdmin) {
-                document.getElementById('admin-area').style.display = 'block';
-                document.getElementById('user-shield').style.display = 'none';
-            } else {
-                document.getElementById('user-shield').style.display = 'block';
-            }
-            
-            // Init YouTube
-            if(window.YT && YT.Player) {
-                onYouTubeIframeAPIReady();
-            }
-        }
-
-        // --- 2. YOUTUBE API ---
+        // 1. YOUTUBE PLAYER SETUP
         function onYouTubeIframeAPIReady() {
             player = new YT.Player('player', {
                 height: '100%', width: '100%',
-                videoId: '', // Start empty
-                playerVars: { 
-                    'playsinline': 1, 
-                    'controls': 1, // Admin needs controls
-                    'rel': 0,
-                    'autoplay': 1, // Try to autoplay
-                    'mute': 0      // Try with sound
-                },
+                videoId: '',
+                playerVars: { 'playsinline': 1, 'controls': 1, 'rel': 0 },
                 events: {
                     'onReady': onPlayerReady,
-                    'onStateChange': onPlayerStateChange,
-                    'onError': onPlayerError
+                    'onStateChange': onPlayerStateChange
                 }
             });
         }
 
         function onPlayerReady(event) {
-            isReady = true;
-            document.getElementById('status-text').innerText = "Player Ready! Waiting for video...";
+            document.getElementById("syncStatus").innerText = "Ready! Waiting for host...";
+            player.setVolume(100);
         }
 
-        function onPlayerError(event) {
-            console.log("YouTube Error:", event.data);
-            alert("Video Error! The video might be restricted or private.");
-        }
-
-        // --- 3. LOAD VIDEO LOGIC (FIXED) ---
-        function loadVideo() {
-            var url = document.getElementById('videoUrl').value;
-            var videoId = extractID(url);
-            
+        // 2. VIDEO LOADING
+        function loadNewVideo() {
+            var url = document.getElementById("videoUrlInput").value;
+            var videoId = extractVideoID(url);
             if(videoId) {
                 socket.emit('change_video', videoId);
-                document.getElementById('videoUrl').value = "";
-            } else {
-                alert("Invalid YouTube URL!");
+                document.getElementById("videoUrlInput").value = "";
             }
         }
 
-        function extractID(url) {
-            var regExp = /^.*((youtu.be\/)|(v\/)|(\/u\/\w\/)|(embed\/)|(watch\?))\??v?=?([^#&?]*).*/;
+        function extractVideoID(url) {
+            var regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
             var match = url.match(regExp);
-            return (match && match[7].length == 11) ? match[7] : false;
+            return (match && match[2].length == 11) ? match[2] : null;
         }
 
-        // --- 4. SOCKET LISTENERS ---
-        socket.on('change_video', function(id) {
-            if(isReady) {
-                document.getElementById('status-text').innerText = "Loading Video...";
-                player.loadVideoById(id);
-            }
-        });
-
-        socket.on('player_update', function(data) {
-            if(isAdmin) return; // Admin controls themselves
-            if(!isReady) return;
-
-            // Sync Logic
-            var myTime = player.getCurrentTime();
-            var diff = Math.abs(data.time - myTime);
-
-            if(data.action === 'play') {
-                if(diff > 0.5) player.seekTo(data.time, true);
-                player.playVideo();
-            } else {
-                player.pauseVideo();
-                player.seekTo(data.time, true);
-            }
-        });
-
-        // --- 5. HOST LOGIC ---
-        function onPlayerStateChange(event) {
-            if(!isAdmin) return;
-
-            var time = player.getCurrentTime();
-            
-            if (event.data == YT.PlayerState.PLAYING) {
-                socket.emit('video_control', { action: 'play', time: time });
-            } else if (event.data == YT.PlayerState.PAUSED) {
-                socket.emit('video_control', { action: 'pause', time: time });
-            } else if (event.data == YT.PlayerState.BUFFERING) {
-                socket.emit('video_control', { action: 'play', time: time });
-            }
-        }
-        
-        function forceSync() {
+        // 3. ADVANCED VOLUME CONTROL
+        function changeVolume(val) {
             if(player) {
-                socket.emit('video_control', { action: 'play', time: player.getCurrentTime() });
+                player.setVolume(val);
+                document.getElementById("volText").innerText = val + "%";
             }
         }
-        
-        // Loop to keep sync tight
-        setInterval(function() {
-            if(isAdmin && player && player.getPlayerState() == 1) {
-                socket.emit('video_control', { action: 'play', time: player.getCurrentTime() });
-            }
-        }, 2000); // Send sync packet every 2 seconds
 
+        // 4. MANUAL LATENCY ADJUSTMENT (The "Fix" Feature)
+        function adjustOffset(amount) {
+            userOffset += amount;
+            // রাউন্ডিং ফিক্স (দশমিকের ঝামেলা কমানোর জন্য)
+            userOffset = Math.round(userOffset * 1000) / 1000;
+            
+            document.getElementById("offsetDisplay").innerText = "Offset: " + (userOffset * 1000) + "ms";
+            document.getElementById("syncStatus").innerText = "Adjusted! Next sync will use this offset.";
+            
+            // সাথে সাথে এফেক্ট দেখার জন্য:
+            forceSync();
+        }
+
+        // 5. CORE SYNC LOGIC
+        function forceSync() {
+            if(!player) return;
+            player.unMute();
+            
+            // Formula: HostTime + (Time passed since msg) + NetworkBuffer + ManualOffset
+            var now = Date.now();
+            var timePassed = (now - lastPacketTime) / 1000;
+            var targetTime = lastHostTime + timePassed + networkLatency + userOffset;
+
+            console.log("Syncing to:", targetTime);
+            document.getElementById("syncStatus").innerText = "Syncing to " + targetTime.toFixed(2) + "s";
+            
+            player.seekTo(targetTime, true);
+            player.playVideo();
+        }
+
+        // 6. SOCKET HANDLERS
+        socket.on('change_video', function(newID) {
+            if(player && player.loadVideoById) player.loadVideoById(newID);
+        });
+
+        socket.on('video_control', function(msg) {
+            ignoreEvent = true;
+            isHost = false; 
+
+            // যখন সার্ভার থেকে কমান্ড আসবে, তখন ম্যানুয়াল অফসেট যোগ করে প্লে হবে
+            if (msg.action === 'play') {
+                var target = msg.time + networkLatency + userOffset;
+                player.seekTo(target, true);
+                player.playVideo();
+            } else if (msg.action === 'pause') {
+                player.pauseVideo();
+            } else if (msg.action === 'seek') {
+                player.seekTo(msg.time, true);
+            }
+            setTimeout(() => { ignoreEvent = false; }, 500);
+        });
+
+        // Host Heartbeat
+        socket.on('time_update', function(msg) {
+            lastHostTime = msg.time;
+            lastPacketTime = Date.now();
+            document.getElementById("syncStatus").innerText = "Host Time: " + Math.round(msg.time) + "s";
+            
+            // AUTO DRIFT CORRECTION
+            // যদি আমি হোস্ট না হই এবং ভিডিও প্লে থাকে
+            if(!isHost && player && player.getPlayerState() == YT.PlayerState.PLAYING) {
+                var myTime = player.getCurrentTime();
+                var hostActualTime = msg.time + ((Date.now() - lastPacketTime)/1000);
+                var diff = Math.abs(myTime - hostActualTime);
+
+                // যদি গ্যাপ ২ সেকেন্ডের বেশি হয়, অটো ফিক্স করো
+                if(diff > 2.0) {
+                    console.log("Drift detected! Auto syncing...");
+                    forceSync();
+                }
+            }
+        });
+
+        // 7. HOST BROADCAST LOOP
+        setInterval(() => {
+            if (player && player.getPlayerState && player.getPlayerState() == YT.PlayerState.PLAYING) {
+                // আমি প্লে করেছি মানে আমিই এখন হোস্ট
+                // লজিক: যে শেষবার প্লে বাটনে চাপ দিয়েছে বা যার ভিডিও চলছে, সে টাইম পাঠাবে
+                if(isHost) {
+                    socket.emit('time_update', { time: player.getCurrentTime() });
+                }
+            }
+        }, 1000);
+
+        function onPlayerStateChange(event) {
+            if (ignoreEvent) return;
+            
+            // আমি কন্ট্রোল করলে আমি হোস্ট
+            if (event.data == YT.PlayerState.PLAYING) {
+                isHost = true;
+                socket.emit('video_control', { action: 'play', time: player.getCurrentTime() });
+            } else if (event.data == YT.PlayerState.PAUSED) {
+                isHost = true;
+                socket.emit('video_control', { action: 'pause', time: player.getCurrentTime() });
+            } else if (event.data == YT.PlayerState.BUFFERING) {
+                 isHost = true;
+                 socket.emit('video_control', { action: 'seek', time: player.getCurrentTime() });
+            }
+        }
     </script>
 </body>
 </html>
