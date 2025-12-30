@@ -13,96 +13,94 @@ app.get('/', (req, res) => {
   res.sendFile(__dirname + '/index.html');
 });
 
-// --- STATE MANAGEMENT ---
+// --- GLOBAL STATE ---
 let currentVideoID = null;
-let hostState = {
-    time: 0,
-    timestamp: Date.now(),
+let roomState = {
     isPlaying: false,
+    videoTime: 0,
+    timestamp: Date.now(), // Last update time
     playbackRate: 1
 };
 
 io.on('connection', (socket) => {
-  // 1. Initial Data Send
-  if (currentVideoID) {
-    socket.emit('sync_video_id', currentVideoID);
-    
-    // Calculate current projected time
-    let timePassed = 0;
-    if(hostState.isPlaying) {
-        timePassed = (Date.now() - hostState.timestamp) / 1000;
-    }
-    let projectedTime = hostState.time + (timePassed * hostState.playbackRate);
-    
-    socket.emit('sync_player_state', {
-        action: hostState.isPlaying ? 'play' : 'pause',
-        time: projectedTime,
-        rate: hostState.playbackRate
+  
+  // 1. CLOCK SYNC (Ping-Pong)
+  // ক্লায়েন্ট সার্ভারের আসল সময় জানতে চাইবে
+  socket.on('get_server_time', (clientTimestamp, callback) => {
+    callback({
+        serverTime: Date.now(),
+        clientTimestamp: clientTimestamp
     });
-  }
+  });
 
-  // 2. User Join Logic
   socket.on('join_user', (name) => {
     socket.userData = { name: name, drift: 0 };
-    broadcastUserList();
+    
+    // Send current video
+    if (currentVideoID) {
+        socket.emit('set_video', currentVideoID);
+        
+        // Predict current time based on elapsed time
+        let elapsed = (Date.now() - roomState.timestamp) / 1000;
+        let targetTime = roomState.videoTime + (roomState.isPlaying ? elapsed : 0);
+        
+        socket.emit('update_state', {
+            isPlaying: roomState.isPlaying,
+            time: targetTime,
+            rate: roomState.playbackRate,
+            timestamp: Date.now()
+        });
+    }
+    updateUserList();
   });
 
   socket.on('disconnect', () => {
-    broadcastUserList();
+    updateUserList();
   });
 
-  // 3. HOST UPDATES (The Source of Truth)
-  socket.on('host_update', (data) => {
-    // Save state on server
-    hostState.time = data.time;
-    hostState.timestamp = Date.now(); // Server receive time
-    hostState.isPlaying = (data.state === 1); // 1 = Playing
-    hostState.playbackRate = data.rate || 1;
+  // 2. HOST UPDATE (The Truth Source)
+  socket.on('host_signal', (data) => {
+    roomState.videoTime = data.time;
+    roomState.isPlaying = data.isPlaying;
+    roomState.playbackRate = data.rate;
+    roomState.timestamp = Date.now(); // Record exact server time
 
-    // Broadcast accurate pulse to all clients
-    // We send 'serverTimestamp' so clients can calculate network latency
-    socket.broadcast.emit('server_pulse', {
-        hostTime: hostState.time,
-        isPlaying: hostState.isPlaying,
-        rate: hostState.playbackRate,
-        serverTimestamp: Date.now()
+    // Broadcast to everyone
+    socket.broadcast.emit('update_state', {
+        isPlaying: roomState.isPlaying,
+        time: roomState.videoTime,
+        rate: roomState.playbackRate,
+        timestamp: roomState.timestamp
     });
   });
 
-  // 4. Video Change
   socket.on('change_video', (id) => {
     currentVideoID = id;
-    hostState.time = 0;
-    hostState.isPlaying = false;
-    io.emit('sync_video_id', id);
+    roomState.videoTime = 0;
+    roomState.isPlaying = false;
+    io.emit('set_video', id);
   });
 
-  // 5. Admin Commands
-  socket.on('admin_action', (data) => {
-    io.emit('execute_admin_command', data);
-  });
-
-  // 6. User Status Report
   socket.on('report_drift', (drift) => {
     if(socket.userData) socket.userData.drift = drift;
   });
+  
+  // Admin Commands
+  socket.on('admin_cmd', (cmd) => {
+      io.emit('exec_cmd', cmd);
+  });
 });
 
-// User List Loop
-setInterval(() => {
-    broadcastUserList();
-}, 1000);
+setInterval(updateUserList, 1000);
 
-function broadcastUserList() {
+function updateUserList() {
     let users = [];
-    io.sockets.sockets.forEach((s) => {
-        if(s.userData) {
-            users.push({ id: s.id, name: s.userData.name, drift: s.userData.drift });
-        }
+    io.sockets.sockets.forEach(s => {
+        if(s.userData) users.push({ id: s.id, name: s.userData.name, drift: s.userData.drift });
     });
-    io.emit('update_user_list', users);
+    io.emit('user_list', users);
 }
 
 server.listen(3000, () => {
-  console.log('🚀 Ultra-Low Latency Server running on 3000');
+  console.log('⚡ Quantum Sync Server Running on 3000');
 });
